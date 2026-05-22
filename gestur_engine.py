@@ -75,11 +75,34 @@ class GestureEngine:
         self.laser_active = False
         self.shaka_intent_start = None
         self.shaka_toggled = False       
+
+        # State: Select All (👐) — kedua tangan terbuka bersamaan
+        self.select_all_intent_start = None
+        self.select_all_triggered = False
+        self.last_select_all_time = 0   # Cooldown independen, tidak berbagi dengan gestur lain
+
+        # State: Thumbs Up (👍) → Klik Kiri
+        self.thumbsup_intent_start = None
+        self.thumbsup_triggered = False
+
+        # State: Pinch (🤏) → Copy (Ctrl+C)
+        self.pinch_intent_start = None
+        self.pinch_triggered = False
+
+        # State: Peace (✌️) → Paste (Ctrl+V)
+        self.peace_intent_start = None
+        self.peace_triggered = False
+
+        # State: ILY (🤟) → Alt+Tab (pindah aplikasi)
+        self.ily_intent_start = None
+        self.ily_active = False        # Apakah Alt sedang di-hold?
+        self.ily_last_tab_time = 0     # Kapan terakhir Tab ditekan?
+
         self.filter_x, self.filter_y = None, None
         self.last_cursor_x, self.last_cursor_y = None, None
         self.screen_w, self.screen_h = pyautogui.size()
 
-        print("✅ GestureEngine v2.4 (God Mode + Fox Summon) siap!")
+        print("✅ GestureEngine v2.5 (God Mode + Fox Summon + Open Arms) siap!")
 
     def _in_cooldown(self):
         return (time.time() * 1000 - self.last_action_time) < self.current_cooldown
@@ -137,6 +160,48 @@ class GestureEngine:
         thumb_curled = d(wrist, landmarks[4], w, h) < d(wrist, landmarks[3], w, h) * 1.2
         
         return index_open and pinky_open and middle_curled and ring_curled and thumb_curled
+
+    # --- THUMBS UP (👍) UNTUK KLIK KIRI ---
+    def _is_thumbs_up(self, landmarks, w, h):
+        d, wrist = self._calc_dist, landmarks[0]
+        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h)
+        thumb_up = landmarks[4].y < landmarks[3].y
+        fingers_curled = all(
+            d(wrist, landmarks[tip], w, h) < d(wrist, landmarks[pip], w, h)
+            for tip, pip in [(8, 6), (12, 10), (16, 14), (20, 18)]
+        )
+        return thumb_open and thumb_up and fingers_curled
+
+    # --- PINCH (🤏) UNTUK COPY ---
+    def _is_pinch_pose(self, landmarks, w, h):
+        d, wrist = self._calc_dist, landmarks[0]
+        pinch_dist = d(landmarks[4], landmarks[8], w, h)
+        ref_dist = d(wrist, landmarks[5], w, h)
+        pinch_close = pinch_dist < ref_dist * 0.4
+        others_curled = all(
+            d(wrist, landmarks[tip], w, h) < d(wrist, landmarks[pip], w, h)
+            for tip, pip in [(12, 10), (16, 14), (20, 18)]
+        )
+        return pinch_close and others_curled
+
+    # --- PEACE (✌️) UNTUK PASTE ---
+    def _is_peace_pose(self, landmarks, w, h):
+        d, wrist = self._calc_dist, landmarks[0]
+        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h)
+        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h)
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
+        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h)
+        return index_open and middle_open and ring_curled and pinky_curled
+
+    # --- ILY / I LOVE YOU (🤟) UNTUK ALT+TAB ---
+    def _is_ily_pose(self, landmarks, w, h):
+        d, wrist = self._calc_dist, landmarks[0]
+        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h)
+        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h)
+        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h)
+        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h)
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
+        return thumb_open and index_open and pinky_open and middle_curled and ring_curled
 
     # ========================================================
     # LOGIKA GESTUR AKSI
@@ -209,6 +274,108 @@ class GestureEngine:
         self.last_cursor_x, self.last_cursor_y = filtered_x, filtered_y
         self.cursor_callback(int(filtered_x), int(filtered_y))
 
+    # --- LOGIKA SELECT ALL (👐 Kedua Tangan Terbuka) ---
+    def _detect_select_all(self, open_hand_count, frame_w, frame_h):
+        """
+        Dipanggil setelah seluruh tangan pada frame diproses.
+        Menggunakan cooldown INDEPENDEN agar tidak diblokir oleh
+        cooldown bersama dari gestur swipe / laser.
+        """
+        both_open = open_hand_count >= 2
+
+        if both_open:
+            if self.select_all_intent_start is None:
+                self.select_all_intent_start = time.time()
+                self.select_all_triggered = False
+                print("👐 Kedua tangan terbuka! Menahan untuk Select All...")
+            elif (not self.select_all_triggered and
+                  time.time() - self.select_all_intent_start >= INTENT_SELECT_ALL_SEC):
+                now_ms = time.time() * 1000
+                if now_ms - self.last_select_all_time >= COOLDOWN_SELECT_ALL_MS:
+                    self.last_select_all_time = now_ms
+                    self.select_all_triggered = True
+                    self.last_action_name = "select_all"
+                    print("🎯 AKSI DIEKSEKUSI: SELECT_ALL")
+                    self.callback("select_all")
+        else:
+            self.select_all_intent_start = None
+            self.select_all_triggered = False
+
+    # --- LOGIKA LEFT CLICK (👍 Thumbs Up) ---
+    def _detect_left_click(self, landmarks, w, h):
+        if self._is_thumbs_up(landmarks, w, h):
+            if self.thumbsup_intent_start is None:
+                self.thumbsup_intent_start = time.time()
+                self.thumbsup_triggered = False
+            elif not self.thumbsup_triggered and time.time() - self.thumbsup_intent_start >= INTENT_THUMBSUP_SEC:
+                if not self._in_cooldown():
+                    self.thumbsup_triggered = True
+                    self._trigger_action("left_click", COOLDOWN_THUMBSUP_MS)
+        else:
+            self.thumbsup_intent_start = None
+            self.thumbsup_triggered = False
+
+    # --- LOGIKA COPY (🤏 Pinch) ---
+    def _detect_copy(self, landmarks, w, h):
+        if self._is_pinch_pose(landmarks, w, h):
+            if self.pinch_intent_start is None:
+                self.pinch_intent_start = time.time()
+                self.pinch_triggered = False
+            elif not self.pinch_triggered and time.time() - self.pinch_intent_start >= INTENT_PINCH_SEC:
+                if not self._in_cooldown():
+                    self.pinch_triggered = True
+                    self._trigger_action("copy", COOLDOWN_PINCH_MS)
+        else:
+            self.pinch_intent_start = None
+            self.pinch_triggered = False
+
+    # --- LOGIKA PASTE (✌️ Peace) ---
+    def _detect_paste(self, landmarks, w, h):
+        if self._is_peace_pose(landmarks, w, h):
+            if self.peace_intent_start is None:
+                self.peace_intent_start = time.time()
+                self.peace_triggered = False
+            elif not self.peace_triggered and time.time() - self.peace_intent_start >= INTENT_PEACE_SEC:
+                if not self._in_cooldown():
+                    self.peace_triggered = True
+                    self._trigger_action("paste", COOLDOWN_PEACE_MS)
+        else:
+            self.peace_intent_start = None
+            self.peace_triggered = False
+
+    # --- LOGIKA ALT+TAB (🤟 ILY) ---
+    def _process_ily_state(self, ily_detected, w, h):
+        """
+        State machine untuk Alt+Tab:
+        1. Hold 🤟 >= INTENT_ILY_SEC → Alt down + Tab (buka switcher)
+        2. Terus hold → Tab ditekan berulang setiap ILY_TAB_REPEAT_MS
+        3. Lepas 🤟 → Alt di-release (aplikasi terpilih)
+        """
+        if ily_detected:
+            if self.ily_intent_start is None:
+                self.ily_intent_start = time.time()
+                print("🤟 ILY Terdeteksi! Menahan untuk Alt+Tab...")
+            elif not self.ily_active and time.time() - self.ily_intent_start >= INTENT_ILY_SEC:
+                self.ily_active = True
+                self.ily_last_tab_time = time.time() * 1000
+                self.last_action_name = "alt_tab_start"
+                print("🎯 AKSI DIEKSEKUSI: ALT_TAB_START")
+                self.callback("alt_tab_start")
+            elif self.ily_active:
+                now_ms = time.time() * 1000
+                if now_ms - self.ily_last_tab_time >= ILY_TAB_REPEAT_MS:
+                    self.ily_last_tab_time = now_ms
+                    self.last_action_name = "alt_tab_next"
+                    print("🎯 AKSI DIEKSEKUSI: ALT_TAB_NEXT")
+                    self.callback("alt_tab_next")
+        else:
+            if self.ily_active:
+                self.ily_active = False
+                self.last_action_name = "alt_tab_end"
+                print("🎯 AKSI DIEKSEKUSI: ALT_TAB_END")
+                self.callback("alt_tab_end")
+            self.ily_intent_start = None
+
     # --- LOGIKA SWIPE ---
     def _detect_swipe(self, hand_label, landmarks, frame_w, frame_h):
         if not self._is_hand_open(landmarks, frame_w, frame_h) or not (0.15 <= landmarks[9].y <= 0.90):
@@ -242,10 +409,23 @@ class GestureEngine:
         # Selalu proses full frame agar MediaPipe stabil (tidak terganggu getaran kotak YOLO)
         results = self.hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
 
+        # all_hands  : SEMUA tangan terdeteksi (tanpa filter ROI).
+        #              Dipakai oleh gestur DUA-tangan (👐) agar tidak diblokir
+        #              saat user merentangkan tangan keluar kotak YOLO.
+        # valid_hands: Tangan yang lolos filter ROI.
+        #              Dipakai oleh gestur PER-tangan (swipe, laser, start, quit).
+        all_hands   = []
+        valid_hands = []
+        ily_detected = False  # Flag per-frame untuk gesture ILY (🤟)
+
         if results.multi_hand_landmarks:
             for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
                 hand_label = "Left" if hand_info.classification[0].label == "Right" else "Right"
-                
+                lm = hand_landmarks.landmark
+
+                # Kumpulkan SEMUA tangan untuk keperluan gestur dua-tangan
+                all_hands.append((hand_label, lm))
+
                 # Jika ada ROI presenter, pastikan tangan berada di dalam kotak tersebut
                 if roi:
                     rx1, ry1, rx2, ry2 = roi
@@ -266,13 +446,20 @@ class GestureEngine:
                     mp_styles.get_default_hand_connections_style()
                 )
 
-                lm = hand_landmarks.landmark
+                valid_hands.append((hand_label, lm))
                 
                 # 1. Cek Gestur Toggle dan Kon (Quit) secara independen
                 self._detect_laser_toggle(lm, w, h)
                 self._detect_quit_presentation(hand_label, lm, w, h)
 
-                # 2. Routing Aksi Inti (Berdasarkan Status Laser)
+                # 2. Cek Gestur Utility (bekerja di semua mode)
+                self._detect_left_click(lm, w, h)
+                self._detect_copy(lm, w, h)
+                self._detect_paste(lm, w, h)
+                if self._is_ily_pose(lm, w, h):
+                    ily_detected = True
+
+                # 3. Routing Aksi Inti (Berdasarkan Status Laser)
                 if self.laser_active:
                     if self._is_index_pointing(lm, w, h): self._track_index_finger(lm, w, h)
                     else: self.filter_x = self.filter_y = self.last_cursor_x = self.last_cursor_y = None
@@ -283,6 +470,17 @@ class GestureEngine:
                     else:
                         self.position_buffer[hand_label].clear()
                         self.start_state[hand_label]["stage"] = 0
+
+        # --- Gestur Dua-Tangan: gunakan all_hands (tanpa filter ROI) ---
+        open_hand_count = sum(
+            1 for _, lm in all_hands
+            if self._is_hand_open(lm, w, h)
+        )
+        self._detect_select_all(open_hand_count, w, h)
+
+        # --- ILY Alt+Tab: state machine diproses setelah semua tangan dicek ---
+        self._process_ily_state(ily_detected, w, h)
+
         return frame
 
     def get_status(self):

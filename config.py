@@ -19,6 +19,11 @@ SWIPE_MIN_SPEED = 400  # Kecepatan minimum kibasan (pixel per detik)
 INTENT_FIST_SEC = 0.8     # Kepalan untuk Start Presentation
 INTENT_CROSS_SEC = 1.0    # Kedua tangan di dada untuk Close
 INTENT_SHAKA_SEC = 0.8    # Pose Shaka (🤙) untuk toggle Laser Pointer
+INTENT_SELECT_ALL_SEC = 0.7 # Kedua telapak terbuka (👐) untuk Select All (Ctrl+A)
+INTENT_THUMBSUP_SEC = 0.5   # Jempol ke atas (👍) untuk Klik Kiri
+INTENT_PINCH_SEC = 0.5      # Cubit (🤏) untuk Copy (Ctrl+C)
+INTENT_PEACE_SEC = 0.5      # Tanda damai (✌️) untuk Paste (Ctrl+V)
+INTENT_ILY_SEC = 0.6        # ILY / 🤟 untuk Alt+Tab (pindah aplikasi)
 
 # --- GESTUR: QUIT (T-Pose / Time Out) ---
 INTENT_QUIT_SEC = 1.0       # Harus ditahan 1 detik agar tidak tereksekusi tanpa sengaja
@@ -35,6 +40,12 @@ COOLDOWN_START_MS = 2000
 COOLDOWN_CLOSE_MS = 2000
 COOLDOWN_SNAP_MS = 1
 COOLDOWN_LASER_TOGGLE_MS = 1500  # Cooldown antar toggle laser
+COOLDOWN_SELECT_ALL_MS = 2000    # Cooldown untuk Select All (Ctrl+A)
+COOLDOWN_THUMBSUP_MS = 800       # Cooldown klik kiri (👍)
+COOLDOWN_PINCH_MS = 800          # Cooldown copy (🤏)
+COOLDOWN_PEACE_MS = 800          # Cooldown paste (✌️)
+COOLDOWN_ILY_MS = 500            # Cooldown awal Alt+Tab (🤟)
+ILY_TAB_REPEAT_MS = 600          # Interval antar tekan Tab saat hold 🤟
 
 # --- LASER POINTER & CURSOR TRACKING ---
 LASER_MIN_CUTOFF = 0.4       # One Euro Filter: makin kecil = makin tenang saat diam

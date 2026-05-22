@@ -24,6 +24,30 @@ current_software = "ppt"
 def handle_gesture(action):
     global current_software
     
+    # --- AKSI UNIVERSAL (berlaku di semua software) ---
+    if action == "left_click":
+        pyautogui.click()
+        return
+    elif action == "copy":
+        pyautogui.hotkey('ctrl', 'c')
+        return
+    elif action == "paste":
+        pyautogui.hotkey('ctrl', 'v')
+        return
+    elif action == "select_all":
+        pyautogui.hotkey('ctrl', 'a')
+        return
+    elif action == "alt_tab_start":
+        pyautogui.keyDown('alt')
+        pyautogui.press('tab')
+        return
+    elif action == "alt_tab_next":
+        pyautogui.press('tab')
+        return
+    elif action == "alt_tab_end":
+        pyautogui.keyUp('alt')
+        return
+
     # --- PROFIL POWERPOINT (PPT) ---
     if current_software == "ppt":
         if action == "next": pyautogui.press('right')
