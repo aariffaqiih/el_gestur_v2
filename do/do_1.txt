@@ -1,0 +1,69 @@
+**Satu Fitur yang Dipilih: Pencari dan Pembuka Dokumen Lokal**
+
+Fitur ini memungkinkan pengguna mencari dokumen melalui suara atau dashboard, melihat beberapa kandidat beserta waktu modifikasi terakhir, lalu membuka file yang dipilih.
+
+Contoh:
+> “Cari dokumen laporan keuangan April”
+
+Sistem menampilkan:
+1. `Laporan Keuangan April 2026.xlsx` - diubah 2 jam lalu  
+2. `Laporan Keuangan April revisi.docx` - diubah 3 hari lalu  
+3. `Laporan Keuangan April final.pdf` - diubah 7 hari lalu  
+
+Pengguna kemudian mengatakan:
+> “Buka nomor satu”
+
+**Alasan Pemilihan**
+Masalah pencarian file dan versi yang benar adalah salah satu bottleneck dengan bukti terkuat di [1.txt](<D:/RAJA TEGAL/el_gestur_ppt/reset/1.txt:7>). Riset yang dirangkum di file tersebut memperkirakan potensi penghematan `4–6 jam per minggu` jika pencarian atau pembuatan ulang informasi dapat dikurangi ([1.txt](<D:/RAJA TEGAL/el_gestur_ppt/reset/1.txt:23>)).
+
+Fitur ini realistis karena:
+- Tidak membutuhkan API berbayar atau integrasi cloud.
+- Tidak perlu memahami isi dokumen dengan AI pada versi awal.
+- Cocok dengan Voice Typer yang sudah menerima command di [voice_typer.py](<D:/RAJA TEGAL/el_gestur_ppt/voice_typer.py:56>).
+- Cocok dengan Flask API dan dashboard yang sudah tersedia di [server.py](<D:/RAJA TEGAL/el_gestur_ppt/server.py:183>).
+- Lebih berdampak daripada menambah gesture shortcut baru.
+
+**Batasan Versi Awal**
+Fitur hanya mencari dokumen lokal pada folder yang dikonfigurasi, misalnya:
+- `Documents`
+- `Downloads`
+- `Desktop`
+- Folder kerja pilihan pengguna
+
+Ekstensi awal:
+- `.docx`
+- `.xlsx`
+- `.pptx`
+- `.pdf`
+- `.txt`
+- `.csv`
+
+Fitur tidak langsung memilih file secara otomatis. Pengguna tetap mengonfirmasi kandidat untuk mencegah pembukaan versi yang salah.
+
+**Cara Implementasi**
+1. Tambahkan modul `document_finder.py`.
+2. Scan folder yang dikonfigurasi dan buat indeks ringan berisi nama file, path, ekstensi, ukuran, serta waktu modifikasi.
+3. Tambahkan pencarian berdasarkan kata kunci dengan ranking:
+   - kecocokan nama file;
+   - ekstensi dokumen;
+   - waktu modifikasi terbaru;
+   - kecocokan kata seperti `final`, `revisi`, atau bulan.
+4. Tambahkan endpoint Flask:
+   - `POST /documents/search`
+   - `POST /documents/open`
+5. Tambahkan panel dashboard untuk daftar hasil pencarian.
+6. Perluas parser voice command agar mengenali:
+   - `cari dokumen <kata kunci>`
+   - `buka nomor <angka>`
+   - `buka hasil pertama`
+7. Buka dokumen menggunakan aplikasi default Windows, bukan shortcut keyboard.
+
+**Cara Penggunaan**
+1. User mengaktifkan Voice Typer dengan pose `OK` atau tombol dashboard.
+2. User mengatakan: “Cari dokumen proposal kegiatan.”
+3. Dashboard menampilkan maksimal lima kandidat dengan lokasi dan waktu perubahan terakhir.
+4. User memeriksa hasilnya.
+5. User mengatakan: “Buka nomor dua,” atau menekan tombol `Buka`.
+6. Windows membuka dokumen menggunakan Word, Excel, PowerPoint, atau PDF reader yang sesuai.
+
+Ini adalah satu fitur yang cukup kecil untuk dibangun secara aman, tetapi langsung menangani masalah nyata yang paling kuat ditemukan dalam riset.

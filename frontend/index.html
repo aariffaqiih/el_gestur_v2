@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>El Presentasi - Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-color: #0f172a;
+            --panel-bg: rgba(30, 41, 59, 0.7);
+            --primary: #3b82f6;
+            --primary-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            background-image: radial-gradient(circle at 15% 50%, rgba(59, 130, 246, 0.15), transparent 25%),
+                              radial-gradient(circle at 85% 30%, rgba(16, 185, 129, 0.15), transparent 25%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        header {
+            padding: 1.5rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--glass-border);
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(12px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #60a5fa, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 1.5rem;
+            padding: 2rem;
+            flex-grow: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        @media (max-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .glass-panel {
+            background: var(--panel-bg);
+            border-radius: 1rem;
+            border: 1px solid var(--glass-border);
+            padding: 1.5rem;
+            backdrop-filter: blur(16px);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Video Section */
+        .video-section {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .video-container {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #000;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            position: relative;
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1rem;
+            color: var(--text-muted);
+        }
+
+        .video-placeholder i {
+            font-size: 3rem;
+        }
+
+        /* Controls Section */
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 0.75rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            border-color: var(--primary);
+        }
+        .btn-primary:hover {
+            background: var(--primary-hover);
+        }
+
+        .btn-success {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .btn-success:hover { background: rgba(16, 185, 129, 0.3); }
+
+        .btn-danger {
+            background: rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+        .btn-danger:hover { background: rgba(239, 68, 68, 0.3); }
+
+        /* Status Cards */
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-card {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .status-value {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 1rem;
+            font-size: 0.75rem;
+            font-weight: 800;
+        }
+        .badge-active { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .badge-inactive { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+        .badge-warning { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+
+        /* Software Selector */
+        .software-selector {
+            margin-bottom: 1.5rem;
+        }
+        .software-selector h3 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-muted);
+        }
+        .software-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+        .software-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border);
+            color: var(--text-muted);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+        .software-btn.active {
+            background: rgba(59, 130, 246, 0.2);
+            color: #60a5fa;
+            border-color: var(--primary);
+        }
+
+        /* Voice Typer Section */
+        .voice-section {
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--glass-border);
+        }
+
+        .voice-section h3 {
+            font-size: 1rem;
+            margin-bottom: 0.75rem;
+            color: var(--text-muted);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .voice-text-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            min-height: 80px;
+            font-size: 0.9rem;
+            color: var(--text-main);
+            margin-bottom: 1rem;
+            word-wrap: break-word;
+        }
+
+        /* Document Finder */
+        .document-section {
+            border-top: 1px solid var(--glass-border);
+            padding-top: 1.25rem;
+        }
+
+        .document-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .document-heading h2 {
+            font-size: 1.15rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .document-heading p,
+        .document-help {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .document-search-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 0.65rem;
+        }
+
+        .document-search-row input {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 0.8rem 0.9rem;
+            border-radius: 0.5rem;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .document-search-row input:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+        }
+
+        .document-message {
+            min-height: 1.2rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0.75rem 0;
+        }
+
+        .document-message.error {
+            color: #fca5a5;
+        }
+
+        .document-results {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .document-result,
+        .document-empty {
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.65rem;
+            padding: 0.8rem;
+        }
+
+        .document-result {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .document-result-index {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #93c5fd;
+            background: rgba(59, 130, 246, 0.16);
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .document-result-name {
+            font-size: 0.92rem;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .document-result-meta,
+        .document-result-path {
+            color: var(--text-muted);
+            font-size: 0.72rem;
+            margin-top: 0.18rem;
+            word-break: break-all;
+        }
+
+        .document-help {
+            margin-top: 0.85rem;
+        }
+
+        .btn-compact {
+            padding: 0.5rem 0.7rem;
+            font-size: 0.78rem;
+        }
+
+        /* Clipboard History */
+        .clipboard-section {
+            border-top: 1px solid var(--glass-border);
+            padding-top: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .clipboard-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .clipboard-heading h2 {
+            font-size: 1.15rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .clipboard-heading p,
+        .clipboard-help {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .clipboard-toolbar {
+            display: flex;
+            gap: 0.65rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .clipboard-message {
+            min-height: 1.2rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0.65rem 0;
+        }
+
+        .clipboard-message.error {
+            color: #fca5a5;
+        }
+
+        .clipboard-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .clipboard-item,
+        .clipboard-empty {
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.65rem;
+            padding: 0.8rem;
+        }
+
+        .clipboard-item {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: 0.75rem;
+            cursor: pointer;
+            transition: border-color 0.2s ease, background 0.15s ease;
+        }
+
+        .clipboard-item:hover {
+            border-color: rgba(59, 130, 246, 0.4);
+            background: rgba(59, 130, 246, 0.06);
+        }
+
+        .clipboard-item-index {
+            width: 1.75rem;
+            height: 1.75rem;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            color: #a78bfa;
+            background: rgba(139, 92, 246, 0.16);
+            font-size: 0.78rem;
+            font-weight: 800;
+        }
+
+        .clipboard-item-preview {
+            font-size: 0.88rem;
+            color: var(--text-main);
+            word-break: break-word;
+            white-space: pre-line;
+            max-height: 2.8rem;
+            overflow: hidden;
+            line-height: 1.4;
+        }
+
+        .clipboard-item-meta {
+            color: var(--text-muted);
+            font-size: 0.7rem;
+            margin-top: 0.15rem;
+        }
+
+        /* Quick Templates */
+        .snippet-section {
+            border-top: 1px solid var(--glass-border);
+            padding-top: 1.25rem;
+            margin-top: 1.25rem;
+        }
+
+        .snippet-heading {
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .snippet-heading h2 {
+            font-size: 1.15rem;
+            margin-bottom: 0.2rem;
+        }
+
+        .snippet-heading p,
+        .snippet-help {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .snippet-toolbar {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.65rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .snippet-form {
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.65rem;
+            padding: 0.9rem;
+            display: grid;
+            gap: 0.7rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .snippet-form-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 0.65rem;
+        }
+
+        .snippet-toolbar input,
+        .snippet-form input,
+        .snippet-form textarea {
+            width: 100%;
+            background: rgba(0, 0, 0, 0.28);
+            border: 1px solid var(--glass-border);
+            color: var(--text-main);
+            padding: 0.75rem 0.85rem;
+            border-radius: 0.5rem;
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .snippet-toolbar input:focus,
+        .snippet-form input:focus,
+        .snippet-form textarea:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+        }
+
+        .snippet-form textarea {
+            min-height: 110px;
+            resize: vertical;
+            line-height: 1.45;
+        }
+
+        .snippet-form-actions,
+        .snippet-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            justify-content: flex-end;
+        }
+
+        .snippet-message {
+            min-height: 1.2rem;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0.65rem 0;
+        }
+
+        .snippet-message.error {
+            color: #fca5a5;
+        }
+
+        .snippet-list {
+            display: grid;
+            gap: 0.55rem;
+        }
+
+        .snippet-card,
+        .snippet-empty {
+            background: rgba(0, 0, 0, 0.22);
+            border: 1px solid var(--glass-border);
+            border-radius: 0.65rem;
+            padding: 0.8rem;
+        }
+
+        .snippet-card {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 0.75rem;
+            align-items: start;
+        }
+
+        .snippet-title-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 0.45rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .snippet-title {
+            font-size: 0.94rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        .snippet-category {
+            color: #93c5fd;
+            background: rgba(59, 130, 246, 0.14);
+            border: 1px solid rgba(59, 130, 246, 0.24);
+            border-radius: 999px;
+            padding: 0.16rem 0.45rem;
+            font-size: 0.68rem;
+            font-weight: 700;
+        }
+
+        .snippet-aliases,
+        .snippet-preview {
+            color: var(--text-muted);
+            font-size: 0.74rem;
+            line-height: 1.45;
+            word-break: break-word;
+        }
+
+        .snippet-preview {
+            margin-top: 0.22rem;
+            white-space: pre-line;
+            max-height: 3.2rem;
+            overflow: hidden;
+        }
+
+        @media (max-width: 640px) {
+            .document-search-row {
+                grid-template-columns: 1fr 1fr;
+            }
+
+            .document-search-row input {
+                grid-column: 1 / -1;
+            }
+
+            .snippet-toolbar,
+            .snippet-form-grid,
+            .snippet-card {
+                grid-template-columns: 1fr;
+            }
+
+            .snippet-actions,
+            .snippet-form-actions {
+                justify-content: stretch;
+            }
+
+            .snippet-actions .btn,
+            .snippet-form-actions .btn {
+                flex: 1 1 auto;
+            }
+        }
+
+        /* Pulse animation */
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        .recording .fa-microphone {
+            color: var(--danger);
+            animation: pulse 2s infinite;
+            border-radius: 50%;
+        }
+
+        /* API Base URL config */
+        .api-config {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            background: rgba(0,0,0,0.5);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            font-size: 0.7rem;
+            color: var(--text-muted);
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+            El Presentasi
+        </div>
+        <div id="connection-status" class="status-badge badge-warning">Connecting...</div>
+    </header>
+
+    <div class="container">
+        <!-- Main Video Panel -->
+        <div class="glass-panel video-section">
+            <div class="video-container">
+                <div class="video-placeholder" id="video-placeholder">
+                    <i class="fa-solid fa-camera-slash"></i>
+                    <p>Video Feed Offline</p>
+                </div>
+                <img id="video-stream" src="" alt="Video Feed" style="display: none;">
+            </div>
+
+            <div class="status-container" style="flex-direction: row; flex-wrap: wrap;">
+                <div class="status-card" style="flex: 1;">
+                    <div class="status-label">Gestur Terakhir</div>
+                    <div class="status-value" id="val-gesture">--</div>
+                </div>
+                <div class="status-card" style="flex: 1;">
+                    <div class="status-label">Target ID</div>
+                    <div class="status-value" id="val-locked-id">--</div>
+                </div>
+            </div>
+
+            <section class="document-section" aria-labelledby="document-title">
+                <div class="document-heading">
+                    <div>
+                        <h2 id="document-title"><i class="fa-solid fa-folder-open"></i> Pencari Dokumen Lokal</h2>
+                        <p>Temukan versi dokumen yang tepat tanpa menelusuri folder satu per satu.</p>
+                    </div>
+                </div>
+                <div class="document-search-row">
+                    <input
+                        type="search"
+                        id="document-query"
+                        placeholder="Contoh: laporan keuangan April"
+                        aria-label="Kata kunci pencarian dokumen"
+                    >
+                    <button class="btn btn-primary" id="document-search-button" onclick="searchDocuments(false)">
+                        <i class="fa-solid fa-magnifying-glass"></i> Cari
+                    </button>
+                    <button class="btn" id="document-refresh-button" onclick="searchDocuments(true)">
+                        <i class="fa-solid fa-rotate"></i> Scan Ulang
+                    </button>
+                </div>
+                <div class="document-message" id="document-message">
+                    Cari dokumen lokal melalui dashboard atau perintah suara.
+                </div>
+                <div class="document-results" id="document-results"></div>
+                <p class="document-help">
+                    Perintah suara: “cari dokumen proposal kegiatan”, lalu “buka nomor satu”.
+                </p>
+            </section>
+
+            <section class="clipboard-section" aria-labelledby="clipboard-title">
+                <div class="clipboard-heading">
+                    <div>
+                        <h2 id="clipboard-title"><i class="fa-solid fa-clipboard-list"></i> Riwayat Clipboard</h2>
+                        <p>Simpan otomatis setiap copy. Tempel kembali item lama tanpa harus copy ulang.</p>
+                    </div>
+                </div>
+                <div class="clipboard-toolbar">
+                    <button class="btn btn-compact" onclick="refreshClipboard()">
+                        <i class="fa-solid fa-rotate"></i> Refresh
+                    </button>
+                    <button class="btn btn-danger btn-compact" onclick="clearClipboard()">
+                        <i class="fa-solid fa-trash"></i> Kosongkan
+                    </button>
+                </div>
+                <div class="clipboard-message" id="clipboard-message">
+                    Riwayat clipboard siap digunakan.
+                </div>
+                <div class="clipboard-list" id="clipboard-list"></div>
+                <p class="clipboard-help">
+                    Perintah suara: &ldquo;tempel nomor 2&rdquo;, &ldquo;tempel yang sebelumnya&rdquo;, &ldquo;hapus riwayat clipboard&rdquo;.
+                </p>
+            </section>
+
+            <section class="snippet-section" aria-labelledby="snippet-title">
+                <div class="snippet-heading">
+                    <div>
+                        <h2 id="snippet-title"><i class="fa-solid fa-quote-left"></i> Template Cepat</h2>
+                        <p>Simpan teks berulang dan tempelkan langsung ke aplikasi aktif.</p>
+                    </div>
+                </div>
+
+                <div class="snippet-toolbar">
+                    <input
+                        type="search"
+                        id="snippet-search"
+                        placeholder="Cari template atau alias"
+                        aria-label="Cari template cepat"
+                    >
+                    <button class="btn" id="snippet-search-button" onclick="loadSnippets()">
+                        <i class="fa-solid fa-filter"></i> Filter
+                    </button>
+                </div>
+
+                <form class="snippet-form" id="snippet-form" onsubmit="saveSnippet(event)">
+                    <input type="hidden" id="snippet-id">
+                    <div class="snippet-form-grid">
+                        <input
+                            type="text"
+                            id="snippet-title-input"
+                            placeholder="Judul, contoh: Follow Up"
+                            aria-label="Judul template"
+                            maxlength="80"
+                            required
+                        >
+                        <input
+                            type="text"
+                            id="snippet-category-input"
+                            placeholder="Kategori, contoh: Email"
+                            aria-label="Kategori template"
+                            maxlength="60"
+                        >
+                    </div>
+                    <input
+                        type="text"
+                        id="snippet-aliases-input"
+                        placeholder="Alias dipisah koma, contoh: follow up, tindak lanjut"
+                        aria-label="Alias template"
+                    >
+                    <textarea
+                        id="snippet-body-input"
+                        placeholder="Isi template yang akan ditempel ke aplikasi aktif"
+                        aria-label="Isi template"
+                        maxlength="5000"
+                        required
+                    ></textarea>
+                    <div class="snippet-form-actions">
+                        <button class="btn" type="button" onclick="resetSnippetForm()">
+                            <i class="fa-solid fa-eraser"></i> Bersihkan
+                        </button>
+                        <button class="btn btn-primary" id="snippet-save-button" type="submit">
+                            <i class="fa-solid fa-floppy-disk"></i> Simpan
+                        </button>
+                    </div>
+                </form>
+
+                <div class="snippet-message" id="snippet-message">
+                    Ucapkan "pakai template follow up" atau tekan tombol Tempel.
+                </div>
+                <div class="snippet-list" id="snippet-list"></div>
+                <p class="snippet-help">
+                    Gunakan setelah cursor berada di Word, email, Notion, browser form, atau aplikasi tujuan lain.
+                </p>
+            </section>
+        </div>
+
+        <!-- Sidebar Controls -->
+        <div class="glass-panel">
+            <div class="controls-grid">
+                <button class="btn btn-success" onclick="apiCall('start')">
+                    <i class="fa-solid fa-play"></i> Start Engine
+                </button>
+                <button class="btn btn-danger" onclick="apiCall('stop')">
+                    <i class="fa-solid fa-stop"></i> Stop Engine
+                </button>
+                <button class="btn" onclick="apiCall('lock')">
+                    <i class="fa-solid fa-lock"></i> Lock Target
+                </button>
+                <button class="btn" onclick="apiCall('unlock')">
+                    <i class="fa-solid fa-unlock"></i> Unlock Target
+                </button>
+            </div>
+
+            <div class="status-card" style="margin-bottom: 1.5rem;">
+                <div class="status-label">Status Engine</div>
+                <div class="status-badge badge-inactive" id="status-engine">OFFLINE</div>
+            </div>
+
+            <!-- Software Selector -->
+            <div class="software-selector">
+                <h3><i class="fa-solid fa-layer-group"></i> Software Profil</h3>
+                <div class="software-grid">
+                    <button class="software-btn active" id="btn-ppt" onclick="setSoftware('ppt')">PowerPoint</button>
+                    <button class="software-btn" id="btn-canva" onclick="setSoftware('canva')">Canva</button>
+                    <button class="software-btn" id="btn-figma" onclick="setSoftware('figma')">Figma</button>
+                    <button class="software-btn" id="btn-notion" onclick="setSoftware('notion')">Notion</button>
+                </div>
+            </div>
+
+            <!-- Voice Typer Section -->
+            <div class="voice-section">
+                <h3>
+                    <i class="fa-solid fa-microphone" id="voice-icon"></i> Voice Typer
+                    <span id="voice-status-badge" class="status-badge badge-inactive" style="margin-left: auto;">Idle</span>
+                </h3>
+                <div class="controls-grid" style="grid-template-columns: 1fr 1fr; margin-bottom: 1rem;">
+                    <button class="btn btn-primary" onclick="toggleBrowserVoice(true)">Mulai Dengar</button>
+                    <button class="btn" onclick="toggleBrowserVoice(false)">Berhenti</button>
+                </div>
+                <div class="voice-text-box" id="voice-text">
+                    Teks yang diucapkan akan muncul di sini...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="api-config">
+        API: <input type="text" id="api-url" value="http://127.0.0.1:5000" style="background:transparent; border:none; color:white; border-bottom: 1px solid gray;">
+    </div>
+
+    <script>
+        // API Base URL
+        const getBaseUrl = () => document.getElementById('api-url').value;
+
+        // Elements
+        const elConnStatus = document.getElementById('connection-status');
+        const elEngineStatus = document.getElementById('status-engine');
+        const elGesture = document.getElementById('val-gesture');
+        const elLockedId = document.getElementById('val-locked-id');
+        const elVoiceIcon = document.getElementById('voice-icon');
+        const elVoiceBadge = document.getElementById('voice-status-badge');
+        const elVoiceText = document.getElementById('voice-text');
+        const elDocumentQuery = document.getElementById('document-query');
+        const elDocumentMessage = document.getElementById('document-message');
+        const elDocumentResults = document.getElementById('document-results');
+        const elSnippetSearch = document.getElementById('snippet-search');
+        const elSnippetMessage = document.getElementById('snippet-message');
+        const elSnippetList = document.getElementById('snippet-list');
+        const elSnippetForm = document.getElementById('snippet-form');
+        const elSnippetId = document.getElementById('snippet-id');
+        const elSnippetTitle = document.getElementById('snippet-title-input');
+        const elSnippetCategory = document.getElementById('snippet-category-input');
+        const elSnippetAliases = document.getElementById('snippet-aliases-input');
+        const elSnippetBody = document.getElementById('snippet-body-input');
+        const elSnippetSaveButton = document.getElementById('snippet-save-button');
+        const elClipboardMessage = document.getElementById('clipboard-message');
+        const elClipboardList = document.getElementById('clipboard-list');
+
+        const videoStream = document.getElementById('video-stream');
+        const videoPlaceholder = document.getElementById('video-placeholder');
+
+        // Browser Speech Recognition state
+        let recognition = null;
+        let isBrowserVoiceRunning = false;
+        let lastDocumentRevision = null;
+        let lastSnippetRevision = null;
+        let lastClipboardRevision = null;
+        let snippetCache = [];
+
+        async function toggleBrowserVoice(start) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                console.warn("Browser does not support Web Speech API. Falling back to backend VoiceTyper.");
+                if (start) {
+                    await apiCall('voice_start');
+                } else {
+                    await apiCall('voice_stop');
+                }
+                return;
+            }
+
+            if (start) {
+                if (isBrowserVoiceRunning) return;
+
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'id-ID';
+
+                recognition.onstart = () => {
+                    isBrowserVoiceRunning = true;
+                    elVoiceIcon.parentElement.classList.add('recording');
+                    elVoiceBadge.textContent = "LISTENING";
+                    elVoiceBadge.className = "status-badge badge-active";
+                    elVoiceText.textContent = "Mendengarkan langsung secara real-time...";
+                };
+
+                recognition.onresult = async (event) => {
+                    let finalTranscript = '';
+                    let interimTranscript = '';
+
+                    for (let i = 0; i < event.results.length; ++i) {
+                        const transcript = event.results[i][0].transcript;
+                        if (event.results[i].isFinal) {
+                            finalTranscript += transcript;
+                        } else {
+                            interimTranscript += transcript;
+                        }
+                    }
+
+                    // Tampilkan output secara real-time
+                    elVoiceText.innerHTML = `
+                        <span>${finalTranscript}</span>
+                        <span style="color: var(--text-muted); font-style: italic;">${interimTranscript}</span>
+                    `;
+
+                    // Hanya kirim teks final ke backend untuk diketik
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        if (event.results[i].isFinal) {
+                            const text = event.results[i][0].transcript.trim();
+                            if (text) {
+                                console.log("Sending speech text to backend:", text);
+                                await apiCall('type', 'POST', { text });
+                            }
+                        }
+                    }
+                };
+
+                recognition.onerror = (event) => {
+                    console.error("Speech recognition error:", event.error);
+                    if (event.error !== 'no-speech') {
+                        elVoiceText.textContent = `Error: ${event.error}`;
+                        elVoiceText.style.color = 'var(--danger)';
+                        stopBrowserVoice();
+                    }
+                };
+
+                recognition.onend = () => {
+                    // Automatically restart if it was stopped unexpectedly by browser timeout
+                    if (isBrowserVoiceRunning && recognition) {
+                        try {
+                            recognition.start();
+                        } catch (e) {
+                            stopBrowserVoice();
+                        }
+                    }
+                };
+
+                recognition.start();
+            } else {
+                stopBrowserVoice();
+            }
+        }
+
+        function stopBrowserVoice() {
+            isBrowserVoiceRunning = false;
+            if (recognition) {
+                try { recognition.stop(); } catch(e){}
+                recognition = null;
+            }
+            elVoiceIcon.parentElement.classList.remove('recording');
+            elVoiceBadge.textContent = "IDLE";
+            elVoiceBadge.className = "status-badge badge-inactive";
+        }
+
+        // Setup Video Feed
+        function updateVideoFeed() {
+            videoStream.src = `${getBaseUrl()}/video_feed?t=${new Date().getTime()}`;
+            videoStream.style.display = 'block';
+            videoPlaceholder.style.display = 'none';
+        }
+
+        function handleImageError() {
+            videoStream.style.display = 'none';
+            videoPlaceholder.style.display = 'flex';
+        }
+
+        function formatFileSize(sizeInBytes) {
+            if (!Number.isFinite(sizeInBytes) || sizeInBytes < 1024) return `${sizeInBytes || 0} B`;
+            const units = ['KB', 'MB', 'GB'];
+            let size = sizeInBytes / 1024;
+            let unitIndex = 0;
+            while (size >= 1024 && unitIndex < units.length - 1) {
+                size /= 1024;
+                unitIndex += 1;
+            }
+            return `${size.toFixed(size >= 10 ? 0 : 1)} ${units[unitIndex]}`;
+        }
+
+        function renderDocumentState(payload) {
+            if (!payload) return;
+            if (payload.revision !== undefined && payload.revision === lastDocumentRevision) return;
+            if (payload.revision !== undefined) lastDocumentRevision = payload.revision;
+
+            elDocumentMessage.textContent = payload.message || 'Status pencarian dokumen belum tersedia.';
+            elDocumentMessage.classList.toggle('error', payload.status === 'error');
+            if (!Array.isArray(payload.results)) return;
+
+            elDocumentResults.replaceChildren();
+            if (payload.results.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'document-empty';
+                emptyState.textContent = 'Belum ada kandidat dokumen untuk ditampilkan.';
+                elDocumentResults.appendChild(emptyState);
+                return;
+            }
+
+            payload.results.forEach((documentResult, index) => {
+                const resultCard = document.createElement('article');
+                resultCard.className = 'document-result';
+
+                const resultIndex = document.createElement('div');
+                resultIndex.className = 'document-result-index';
+                resultIndex.textContent = index + 1;
+
+                const resultInfo = document.createElement('div');
+                const resultName = document.createElement('div');
+                resultName.className = 'document-result-name';
+                resultName.textContent = documentResult.name;
+
+                const resultMeta = document.createElement('div');
+                resultMeta.className = 'document-result-meta';
+                resultMeta.textContent = `${documentResult.extension.toUpperCase()} · ${formatFileSize(documentResult.size_bytes)} · ${new Date(documentResult.modified_at).toLocaleString('id-ID')}`;
+
+                const resultPath = document.createElement('div');
+                resultPath.className = 'document-result-path';
+                resultPath.textContent = documentResult.parent;
+
+                const openButton = document.createElement('button');
+                openButton.className = 'btn btn-compact';
+                openButton.type = 'button';
+                openButton.textContent = 'Buka';
+                openButton.setAttribute('aria-label', `Buka ${documentResult.name}`);
+                openButton.addEventListener('click', () => openDocument(documentResult.id));
+
+                resultInfo.append(resultName, resultMeta, resultPath);
+                resultCard.append(resultIndex, resultInfo, openButton);
+                elDocumentResults.appendChild(resultCard);
+            });
+        }
+
+        async function searchDocuments(forceRefresh) {
+            const query = elDocumentQuery.value.trim();
+            if (!query) {
+                renderDocumentState({
+                    status: 'error',
+                    message: 'Masukkan kata kunci dokumen yang ingin dicari.',
+                    revision: `local-${Date.now()}`,
+                });
+                return;
+            }
+            const payload = await apiCall('documents/search', 'POST', {
+                query,
+                force_refresh: Boolean(forceRefresh),
+            });
+            renderDocumentState(payload);
+        }
+
+        async function openDocument(resultId) {
+            const payload = await apiCall('documents/open', 'POST', { result_id: resultId });
+            renderDocumentState(payload);
+        }
+
+        function handleDocumentCommandResponse(payload) {
+            if (payload && ['document_search', 'document_open'].includes(payload.command)) {
+                renderDocumentState(payload);
+            }
+        }
+
+        function renderSnippetStatus(payload) {
+            if (!payload) return;
+            if (payload.revision !== undefined && payload.revision === lastSnippetRevision) return;
+            if (payload.revision !== undefined) lastSnippetRevision = payload.revision;
+
+            elSnippetMessage.textContent = payload.message || 'Status template cepat belum tersedia.';
+            elSnippetMessage.classList.toggle('error', payload.status === 'error');
+        }
+
+        function renderSnippetState(payload) {
+            if (!payload) return;
+            renderSnippetStatus(payload);
+            if (Array.isArray(payload.snippets)) {
+                snippetCache = payload.snippets;
+                renderSnippetList(snippetCache);
+            }
+        }
+
+        function renderSnippetList(snippets) {
+            elSnippetList.replaceChildren();
+            if (!Array.isArray(snippets) || snippets.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'snippet-empty';
+                emptyState.textContent = 'Belum ada template yang cocok.';
+                elSnippetList.appendChild(emptyState);
+                return;
+            }
+
+            snippets.forEach((snippet) => {
+                const card = document.createElement('article');
+                card.className = 'snippet-card';
+
+                const content = document.createElement('div');
+                const titleRow = document.createElement('div');
+                titleRow.className = 'snippet-title-row';
+
+                const title = document.createElement('div');
+                title.className = 'snippet-title';
+                title.textContent = snippet.title;
+                titleRow.appendChild(title);
+
+                if (snippet.category) {
+                    const category = document.createElement('span');
+                    category.className = 'snippet-category';
+                    category.textContent = snippet.category;
+                    titleRow.appendChild(category);
+                }
+
+                const aliases = document.createElement('div');
+                aliases.className = 'snippet-aliases';
+                aliases.textContent = snippet.aliases && snippet.aliases.length
+                    ? `Alias: ${snippet.aliases.join(', ')}`
+                    : 'Tanpa alias';
+
+                const preview = document.createElement('div');
+                preview.className = 'snippet-preview';
+                preview.textContent = snippet.body;
+
+                const actions = document.createElement('div');
+                actions.className = 'snippet-actions';
+
+                const insertButton = document.createElement('button');
+                insertButton.className = 'btn btn-primary btn-compact';
+                insertButton.type = 'button';
+                insertButton.innerHTML = '<i class="fa-solid fa-paste"></i> Tempel';
+                insertButton.addEventListener('click', () => insertSnippet(snippet.id));
+
+                const editButton = document.createElement('button');
+                editButton.className = 'btn btn-compact';
+                editButton.type = 'button';
+                editButton.innerHTML = '<i class="fa-solid fa-pen"></i> Edit';
+                editButton.addEventListener('click', () => editSnippet(snippet.id));
+
+                const deleteButton = document.createElement('button');
+                deleteButton.className = 'btn btn-danger btn-compact';
+                deleteButton.type = 'button';
+                deleteButton.innerHTML = '<i class="fa-solid fa-trash"></i> Hapus';
+                deleteButton.addEventListener('click', () => deleteSnippet(snippet.id));
+
+                actions.append(insertButton, editButton, deleteButton);
+                content.append(titleRow, aliases, preview);
+                card.append(content, actions);
+                elSnippetList.appendChild(card);
+            });
+        }
+
+        async function loadSnippets() {
+            const query = elSnippetSearch.value.trim();
+            const endpoint = query
+                ? `snippets?query=${encodeURIComponent(query)}`
+                : 'snippets';
+            const payload = await apiCall(endpoint, 'GET');
+            renderSnippetState(payload);
+        }
+
+        async function saveSnippet(event) {
+            event.preventDefault();
+            const payload = {
+                title: elSnippetTitle.value.trim(),
+                category: elSnippetCategory.value.trim(),
+                aliases: elSnippetAliases.value,
+                body: elSnippetBody.value.trim(),
+            };
+
+            if (!payload.title || !payload.body) {
+                renderSnippetStatus({
+                    status: 'error',
+                    message: 'Judul dan isi template wajib diisi.',
+                    revision: `local-${Date.now()}`,
+                });
+                return;
+            }
+
+            const snippetId = elSnippetId.value;
+            const response = snippetId
+                ? await apiCall(`snippets/${encodeURIComponent(snippetId)}`, 'PUT', payload)
+                : await apiCall('snippets', 'POST', payload);
+            renderSnippetState(response);
+            if (response && response.status === 'success') {
+                resetSnippetForm();
+            }
+        }
+
+        function editSnippet(snippetId) {
+            const snippet = snippetCache.find((item) => item.id === snippetId);
+            if (!snippet) return;
+
+            elSnippetId.value = snippet.id;
+            elSnippetTitle.value = snippet.title || '';
+            elSnippetCategory.value = snippet.category || '';
+            elSnippetAliases.value = Array.isArray(snippet.aliases) ? snippet.aliases.join(', ') : '';
+            elSnippetBody.value = snippet.body || '';
+            elSnippetSaveButton.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Perbarui';
+            renderSnippetStatus({
+                status: 'success',
+                message: `Mengedit template: ${snippet.title}`,
+                revision: `local-${Date.now()}`,
+            });
+            elSnippetTitle.focus();
+        }
+
+        function resetSnippetForm() {
+            elSnippetForm.reset();
+            elSnippetId.value = '';
+            elSnippetSaveButton.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan';
+        }
+
+        async function deleteSnippet(snippetId) {
+            const snippet = snippetCache.find((item) => item.id === snippetId);
+            const title = snippet ? snippet.title : 'template ini';
+            if (!confirm(`Hapus ${title}?`)) return;
+            const payload = await apiCall(`snippets/${encodeURIComponent(snippetId)}`, 'DELETE');
+            renderSnippetState(payload);
+            if (payload && payload.status === 'success' && elSnippetId.value === snippetId) {
+                resetSnippetForm();
+            }
+        }
+
+        async function insertSnippet(snippetId) {
+            const payload = await apiCall('snippets/insert', 'POST', { snippet_id: snippetId });
+            renderSnippetStatus(payload);
+        }
+
+        function handleSnippetCommandResponse(payload) {
+            if (payload && typeof payload.command === 'string' && payload.command.startsWith('snippet_')) {
+                renderSnippetState(payload);
+            }
+        }
+
+        // ========================================================
+        // CLIPBOARD HISTORY
+        // ========================================================
+
+        function renderClipboardState(payload) {
+            if (!payload) return;
+            if (payload.revision !== undefined && payload.revision === lastClipboardRevision) return;
+            if (payload.revision !== undefined) lastClipboardRevision = payload.revision;
+
+            if (payload.message) {
+                elClipboardMessage.textContent = payload.message;
+                elClipboardMessage.classList.toggle('error', payload.status === 'error');
+            }
+            if (!Array.isArray(payload.items)) return;
+
+            elClipboardList.replaceChildren();
+            if (payload.items.length === 0) {
+                const emptyState = document.createElement('div');
+                emptyState.className = 'clipboard-empty';
+                emptyState.textContent = 'Riwayat clipboard kosong. Copy sesuatu untuk memulai.';
+                elClipboardList.appendChild(emptyState);
+                return;
+            }
+
+            payload.items.forEach((item) => {
+                const card = document.createElement('article');
+                card.className = 'clipboard-item';
+                card.title = `Klik untuk tempel item #${item.position}`;
+                card.addEventListener('click', () => pasteClipboardItem(item.position));
+
+                const indexBadge = document.createElement('div');
+                indexBadge.className = 'clipboard-item-index';
+                indexBadge.textContent = item.position;
+
+                const info = document.createElement('div');
+                const preview = document.createElement('div');
+                preview.className = 'clipboard-item-preview';
+                preview.textContent = item.preview;
+
+                const meta = document.createElement('div');
+                meta.className = 'clipboard-item-meta';
+                const charLabel = `${item.length} karakter`;
+                const timeLabel = item.copied_at
+                    ? new Date(item.copied_at).toLocaleString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    : '';
+                meta.textContent = [charLabel, timeLabel].filter(Boolean).join(' · ');
+
+                info.append(preview, meta);
+
+                const pasteBtn = document.createElement('button');
+                pasteBtn.className = 'btn btn-primary btn-compact';
+                pasteBtn.type = 'button';
+                pasteBtn.innerHTML = '<i class="fa-solid fa-paste"></i>';
+                pasteBtn.setAttribute('aria-label', `Tempel item #${item.position}`);
+                pasteBtn.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    pasteClipboardItem(item.position);
+                });
+
+                card.append(indexBadge, info, pasteBtn);
+                elClipboardList.appendChild(card);
+            });
+        }
+
+        async function refreshClipboard() {
+            const payload = await apiCall('clipboard', 'GET');
+            renderClipboardState(payload);
+        }
+
+        async function clearClipboard() {
+            if (!confirm('Kosongkan seluruh riwayat clipboard?')) return;
+            const payload = await apiCall('clipboard', 'DELETE');
+            renderClipboardState(payload);
+        }
+
+        async function pasteClipboardItem(position) {
+            const payload = await apiCall('clipboard/paste', 'POST', { position });
+            if (payload && payload.status === 'success') {
+                elClipboardMessage.textContent = payload.message || `Item #${position} ditempel.`;
+                elClipboardMessage.classList.remove('error');
+            } else if (payload) {
+                elClipboardMessage.textContent = payload.message || 'Gagal menempel item.';
+                elClipboardMessage.classList.add('error');
+            }
+        }
+
+        function handleClipboardCommandResponse(payload) {
+            if (payload && typeof payload.command === 'string' && payload.command.startsWith('clipboard_')) {
+                renderClipboardState(payload);
+            }
+        }
+
+        // Generic API Caller
+        async function apiCall(endpoint, method = 'POST', body = null) {
+            try {
+                const options = { method };
+                if (body) {
+                    options.headers = { 'Content-Type': 'application/json' };
+                    options.body = JSON.stringify(body);
+                }
+                const res = await fetch(`${getBaseUrl()}/${endpoint}`, options);
+                const data = await res.json();
+                console.log(`[${endpoint}] Response:`, data);
+                handleDocumentCommandResponse(data);
+                handleSnippetCommandResponse(data);
+                handleClipboardCommandResponse(data);
+                if(endpoint === 'start') updateVideoFeed();
+                return data;
+            } catch (err) {
+                console.error(`[${endpoint}] Error:`, err);
+            }
+        }
+
+        // Set Software
+        function setSoftware(software) {
+            // Update UI
+            document.querySelectorAll('.software-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${software}`).classList.add('active');
+
+            // Call API
+            apiCall('set_software', 'POST', { software });
+        }
+
+        // Polling Status
+        async function pollStatus() {
+            try {
+                const res = await fetch(`${getBaseUrl()}/status`);
+                if (!res.ok) throw new Error("Network not ok");
+                const data = await res.json();
+
+                // Connection Status
+                elConnStatus.textContent = "Connected";
+                elConnStatus.className = "status-badge badge-active";
+
+                // Engine Status
+                if (data.is_active) {
+                    elEngineStatus.textContent = "ONLINE";
+                    elEngineStatus.className = "status-badge badge-active";
+                    if (videoStream.style.display === 'none' && !videoStream.src.includes('video_feed')) {
+                        updateVideoFeed();
+                    }
+                } else {
+                    elEngineStatus.textContent = "STANDBY";
+                    elEngineStatus.className = "status-badge badge-warning";
+                }
+
+                // Values
+                elLockedId.textContent = data.locked_id || "None";
+                elGesture.textContent = data.gesture_status || "--";
+
+                // Update Software UI based on backend state
+                if (data.current_software) {
+                    document.querySelectorAll('.software-btn').forEach(btn => btn.classList.remove('active'));
+                    const btn = document.getElementById(`btn-${data.current_software}`);
+                    if (btn) btn.classList.add('active');
+                }
+
+                // Voice Typer Status
+                if (data.voice_typer) {
+                    const vt = data.voice_typer;
+                    if (isBrowserVoiceRunning) {
+                        elVoiceIcon.parentElement.classList.add('recording');
+                        elVoiceBadge.textContent = "LISTENING";
+                        elVoiceBadge.className = "status-badge badge-active";
+                    } else if (vt.is_running) {
+                        elVoiceIcon.parentElement.classList.add('recording');
+                        elVoiceBadge.textContent = vt.status.toUpperCase();
+                        elVoiceBadge.className = "status-badge badge-active";
+                    } else {
+                        elVoiceIcon.parentElement.classList.remove('recording');
+                        elVoiceBadge.textContent = "IDLE";
+                        elVoiceBadge.className = "status-badge badge-inactive";
+                    }
+                    if (vt.last_text) {
+                        elVoiceText.textContent = vt.last_text;
+                    }
+                    if (vt.error && !isBrowserVoiceRunning) {
+                        elVoiceText.textContent = `Error: ${vt.error}`;
+                        elVoiceText.style.color = 'var(--danger)';
+                    } else {
+                        elVoiceText.style.color = 'var(--text-main)';
+                    }
+                }
+
+                if (data.documents) {
+                    renderDocumentState(data.documents);
+                }
+
+                if (data.snippets) {
+                    renderSnippetStatus(data.snippets);
+                }
+
+                // Clipboard History: poll perubahan
+                if (data.clipboard && data.clipboard.revision !== lastClipboardRevision) {
+                    refreshClipboard();
+                }
+
+            } catch (err) {
+                elConnStatus.textContent = "Disconnected";
+                elConnStatus.className = "status-badge badge-inactive";
+            }
+        }
+
+        // Initialize
+        document.getElementById('api-url').addEventListener('change', updateVideoFeed);
+        videoStream.addEventListener('error', handleImageError);
+        elDocumentQuery.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') searchDocuments(false);
+        });
+        elSnippetSearch.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter') loadSnippets();
+        });
+        elSnippetSearch.addEventListener('input', () => {
+            if (!elSnippetSearch.value.trim()) loadSnippets();
+        });
+
+        // Start polling
+        setInterval(pollStatus, 1000);
+        pollStatus(); // Initial poll
+        loadSnippets();
+        refreshClipboard();
+    </script>
+</body>
+</html>

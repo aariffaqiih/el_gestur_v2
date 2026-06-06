@@ -3,7 +3,6 @@
 # ============================================================
 
 import cv2
-import os
 import threading
 import pyautogui
 import time
@@ -15,17 +14,6 @@ from gestur_engine import GestureEngine
 from voice_typer import VoiceTyper
 from config import *
 from app_launcher import open_word_blank_document
-from desktop_shortcuts import get_redo_shortcut
-from document_api import create_document_blueprint
-from document_commands import DocumentCommandService
-from document_finder import DocumentFinder, resolve_search_roots
-from command_router import CommandRouter
-from snippet_api import create_snippet_blueprint
-from snippet_commands import SnippetCommandService
-from snippet_store import SnippetStore, resolve_snippet_store_path
-from clipboard_ring import ClipboardRing
-from clipboard_commands import ClipboardCommandService
-from clipboard_api import create_clipboard_blueprint
 
 app = Flask(__name__)
 CORS(app)
@@ -37,7 +25,7 @@ current_software = "ppt"
 
 def handle_gesture(action):
     global current_software
-
+    
     # --- AKSI UNIVERSAL (berlaku di semua software) ---
     if action == "left_click":
         pyautogui.click()
@@ -51,12 +39,6 @@ def handle_gesture(action):
     elif action == "select_all":
         pyautogui.hotkey('ctrl', 'a')
         return
-    elif action == "undo":
-        pyautogui.hotkey('ctrl', 'z')
-        return
-    elif action == "redo":
-        pyautogui.hotkey(*get_redo_shortcut(current_software))
-        return
     elif action == "alt_tab_start":
         pyautogui.keyDown('alt')
         pyautogui.press('tab')
@@ -69,10 +51,10 @@ def handle_gesture(action):
         return
     elif action == "voice_start":
         if voice_typer.is_running():
-            print("🎙️ Voice Typer sudah aktif. OK sign diabaikan.")
+            print("🎙️ Voice Typer sudah aktif. Gesture 🤌 diabaikan.")
         else:
             success = voice_typer.start()
-            print("✅ Voice Typer dimulai lewat OK sign." if success else "❌ Gagal memulai Voice Typer lewat OK sign.")
+            print("✅ Voice Typer dimulai lewat gesture 🤌." if success else "❌ Gagal memulai Voice Typer lewat gesture 🤌.")
         return
     elif action == "open_word_blank":
         success, message = open_word_blank_document()
@@ -83,11 +65,11 @@ def handle_gesture(action):
     if current_software == "ppt":
         if action == "next": pyautogui.press('right')
         elif action == "prev": pyautogui.press('left')
-        elif action == "laser_on":
+        elif action == "laser_on": 
             pyautogui.keyDown('ctrl')
             pyautogui.press('l')
             pyautogui.keyUp('ctrl')
-        elif action == "laser_off":
+        elif action == "laser_off": 
             pyautogui.keyDown('ctrl')
             pyautogui.press('a')
             pyautogui.keyUp('ctrl')
@@ -129,34 +111,7 @@ def handle_cursor_move(x, y):
 locker = ObjectLocker()
 locker.is_active = True # Aktifkan langsung secara default tanpa harus menunggu web!
 engine = GestureEngine(callback=handle_gesture, cursor_callback=handle_cursor_move)
-document_finder = DocumentFinder(
-    roots=resolve_search_roots(
-        DOCUMENT_SEARCH_PATHS,
-        environment_override=os.environ.get("EL_DOCUMENT_SEARCH_PATHS"),
-    ),
-    extensions=DOCUMENT_SEARCH_EXTENSIONS,
-    max_results=DOCUMENT_SEARCH_MAX_RESULTS,
-    index_ttl_seconds=DOCUMENT_INDEX_TTL_SEC,
-    excluded_directory_names=DOCUMENT_SEARCH_EXCLUDED_DIRS,
-    max_index_files=DOCUMENT_INDEX_MAX_FILES,
-)
-document_commands = DocumentCommandService(document_finder)
-snippet_store = SnippetStore(resolve_snippet_store_path(SNIPPET_STORE_PATH))
-snippet_commands = SnippetCommandService(snippet_store)
-clipboard_ring = ClipboardRing(
-    max_size=CLIPBOARD_RING_SIZE,
-    poll_interval=CLIPBOARD_POLL_INTERVAL_SEC,
-)
-clipboard_commands = ClipboardCommandService(clipboard_ring)
-command_router = CommandRouter([
-    clipboard_commands.handle_text,
-    document_commands.handle_text,
-    snippet_commands.handle_text,
-])
-voice_typer = VoiceTyper(command_handler=command_router.handle_text)
-app.register_blueprint(create_document_blueprint(document_commands))
-app.register_blueprint(create_snippet_blueprint(snippet_commands))
-app.register_blueprint(create_clipboard_blueprint(clipboard_commands))
+voice_typer = VoiceTyper()
 pyautogui.FAILSAFE = True
 
 def camera_loop():
@@ -164,21 +119,21 @@ def camera_loop():
     cap = cv2.VideoCapture(CAMERA_INDEX)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-
+    
     print("🎥 Pipeline Kamera berjalan...")
     while True:
         ret, frame = cap.read()
         if not ret: break
         frame = cv2.flip(frame, 1)
-
+        
         frame_annotated, presenter_roi = locker.process_frame(frame)
         if locker.is_active and locker.locked_id and presenter_roi:
             frame_annotated = engine.process_frame(frame_annotated, roi=presenter_roi)
-
+            
         ret, buffer = cv2.imencode('.jpg', frame_annotated)
         if ret: global_frame = buffer.tobytes()
         cv2.imshow("Backend Server - El Presentasi", frame_annotated)
-
+        
         key = cv2.waitKey(1) & 0xFF
         if key == ord('q'): break
     cap.release()
@@ -228,9 +183,21 @@ def voice_status():
 @app.route('/type', methods=['POST'])
 def type_text():
     """Menerima teks dari browser dan langsung mengetikkannya."""
-    data = request.get_json(silent=True) or {}
+    data = request.json
     text = data.get('text', '')
-    return jsonify(voice_typer.process_text(text))
+    if not text:
+        return jsonify({"status": "empty"})
+    
+    clean_text = text.lower().replace('.', '').replace(',', '').replace('?', '').replace('!', '').strip()
+    if clean_text in voice_typer.VOICE_COMMANDS:
+        print(f"⚡ Voice Command (Browser): \"{clean_text}\"")
+        voice_typer.VOICE_COMMANDS[clean_text]()
+        voice_typer.last_text = f"[Command] {clean_text}"
+        return jsonify({"status": "command", "command": clean_text})
+    
+    voice_typer._type_text(text)
+    voice_typer.last_text = text
+    return jsonify({"status": "success", "typed": text})
 
 
 @app.route('/status', methods=['GET'])
@@ -240,10 +207,7 @@ def get_status():
         "locked_id": locker.locked_id,
         "gesture_status": engine.get_status() if locker.is_active else "Sistem Offline",
         "current_software": current_software,
-        "voice_typer": voice_typer.get_status(),
-        "documents": document_commands.get_status(),
-        "snippets": snippet_commands.get_status(),
-        "clipboard": clipboard_commands.get_status(),
+        "voice_typer": voice_typer.get_status()
     })
 
 @app.route('/start', methods=['POST'])
@@ -282,15 +246,12 @@ def video_feed():
     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
 if __name__ == '__main__':
-    # Mulai monitoring clipboard di background
-    clipboard_ring.start()
-
     # Jalankan Flask Server di background thread agar Main Thread bisa digunakan untuk OpenCV GUI
     flask_thread = threading.Thread(
-        target=lambda: app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False),
+        target=lambda: app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False), 
         daemon=True
     )
     flask_thread.start()
-
+    
     # Jalankan kamera loop di Main Thread (Wajib untuk OpenCV GUI / cv2.imshow agar tidak crash)
     camera_loop()

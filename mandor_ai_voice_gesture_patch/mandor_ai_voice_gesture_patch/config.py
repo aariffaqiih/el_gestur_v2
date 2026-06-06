@@ -15,26 +15,19 @@ SWIPE_THRESHOLD_PX = 80      # Min delta X untuk dianggap kibasan
 SWIPE_MAX_DURATION_MS = 1000  # Max durasi kibasan (ms), lebih lambat = bukan kibas
 SWIPE_MIN_SPEED = 400  # Kecepatan minimum kibasan (pixel per detik)
 
-# --- GESTUR: KEPALAN SWIPE KANAN (REDO) ---
-REDO_SWIPE_MIN_DISTANCE_RATIO = 0.15  # Minimal perpindahan horizontal relatif terhadap lebar frame
-REDO_SWIPE_MIN_SPEED_RATIO = 0.50     # Minimal kecepatan relatif terhadap lebar frame per detik
-REDO_SWIPE_MAX_VERTICAL_RATIO = 0.10  # Tolak jika gerakan vertikal terlalu dominan
-REDO_SWIPE_WINDOW_MS = 700            # Sampel lama dibuang agar gesture harus dilakukan cepat
-REDO_SWIPE_MIN_SAMPLES = 4
-
 # --- GESTUR: ANCANG-ANCANG (durasi dalam detik) ---
 INTENT_FIST_SEC = 0.8     # Kepalan untuk Start Presentation
-INTENT_LASER_SEC = 0.8    # Pose L (jempol + telunjuk) untuk toggle Laser Pointer
-INTENT_SELECT_ALL_SEC = 0.7 # Dua tanda damai untuk Select All (Ctrl+A)
+INTENT_CROSS_SEC = 1.0    # Kedua tangan di dada untuk Close
+INTENT_SHAKA_SEC = 0.8    # Pose Shaka (🤙) untuk toggle Laser Pointer
+INTENT_SELECT_ALL_SEC = 0.7 # Kedua telapak terbuka (👐) untuk Select All (Ctrl+A)
 INTENT_THUMBSUP_SEC = 0.5   # Jempol ke atas (👍) untuk Klik Kiri
 INTENT_PINCH_SEC = 0.5      # Cubit (🤏) untuk Copy (Ctrl+C)
-INTENT_UNDO_SEC = 0.6       # Shaka (jempol + kelingking) untuk Undo (Ctrl+Z)
-INTENT_VOICE_START_SEC = 0.8 # OK sign untuk mulai Voice Typer
+INTENT_VOICE_START_SEC = 0.8 # Pinched fingers (🤌) untuk mulai Voice Typer
 INTENT_PEACE_SEC = 0.5      # Tanda damai (✌️) untuk Paste (Ctrl+V)
 INTENT_ILY_SEC = 0.6        # ILY / 🤟 untuk Alt+Tab (pindah aplikasi)
-INTENT_WORD_SEC = 0.8       # Dua jempol ke atas untuk buka Microsoft Word
+INTENT_WORD_SEC = 0.8       # Kedua tangan masing-masing 3 jari untuk buka Microsoft Word
 
-# --- GESTUR: QUIT (DUA KEPALAN BERDAMPINGAN) ---
+# --- GESTUR: QUIT (T-Pose / Time Out) ---
 INTENT_QUIT_SEC = 1.0       # Harus ditahan 1 detik agar tidak tereksekusi tanpa sengaja
 COOLDOWN_QUIT_MS = 2000     # Cooldown super panjang (2 detik) karena ini aksi destruktif
 
@@ -52,13 +45,13 @@ COOLDOWN_LASER_TOGGLE_MS = 1500  # Cooldown antar toggle laser
 COOLDOWN_SELECT_ALL_MS = 2000    # Cooldown untuk Select All (Ctrl+A)
 COOLDOWN_THUMBSUP_MS = 800       # Cooldown klik kiri (👍)
 COOLDOWN_PINCH_MS = 800          # Cooldown copy (🤏)
-COOLDOWN_UNDO_MS = 1000          # Cooldown undo (Ctrl+Z)
-COOLDOWN_VOICE_START_MS = 3000   # Cooldown mulai Voice Typer lewat OK sign
+COOLDOWN_VOICE_START_MS = 3000   # Cooldown mulai Voice Typer lewat gestur 🤌
 COOLDOWN_PEACE_MS = 800          # Cooldown paste (✌️)
 COOLDOWN_ILY_MS = 500            # Cooldown awal Alt+Tab (🤟)
 ILY_TAB_REPEAT_MS = 600          # Interval antar tekan Tab saat hold 🤟
 COOLDOWN_WORD_MS = 5000       # Cooldown buka Word agar tidak membuat banyak dokumen
-COOLDOWN_REDO_MS = 1000        # Cooldown kepalan swipe kanan untuk Redo (Ctrl+Y / Ctrl+Shift+Z)
+WORD_FINGER_COUNT = 3        # Jumlah jari per tangan untuk gesture buka Word
+SELECT_ALL_MIN_FINGERS = 4   # Select All hanya untuk telapak benar-benar terbuka, bukan gesture 3 jari
 
 # --- LASER POINTER & CURSOR TRACKING ---
 LASER_MIN_CUTOFF = 0.4       # One Euro Filter: makin kecil = makin tenang saat diam
@@ -77,28 +70,3 @@ LOCK_LOST_SEC = 3          # Toleransi presenter hilang dari frame
 # --- MEDIAPIPE ---
 MP_DETECTION_CONFIDENCE = 0.7
 MP_TRACKING_CONFIDENCE = 0.7
-
-# --- PENCARIAN DOKUMEN LOKAL ---
-# Override daftar folder tanpa mengubah kode dengan environment variable
-# EL_DOCUMENT_SEARCH_PATHS, dipisahkan oleh ";" pada Windows.
-DOCUMENT_SEARCH_PATHS = ["~/Documents", "~/Desktop", "~/Downloads"]
-DOCUMENT_SEARCH_EXTENSIONS = [".docx", ".xlsx", ".pptx", ".pdf", ".txt", ".csv"]
-DOCUMENT_SEARCH_MAX_RESULTS = 5
-DOCUMENT_INDEX_TTL_SEC = 60
-DOCUMENT_INDEX_MAX_FILES = 20_000
-DOCUMENT_SEARCH_EXCLUDED_DIRS = [
-    "__pycache__",
-    "node_modules",
-    "venv",
-    ".venv",
-]
-
-# --- TEMPLATE CEPAT / SNIPPET INSERTER ---
-# File JSON lokal untuk menyimpan template teks berulang.
-SNIPPET_STORE_PATH = "snippets.json"
-
-# --- CLIPBOARD HISTORY / CLIPBOARD RING ---
-# Jumlah maksimal item teks yang disimpan di riwayat clipboard.
-CLIPBOARD_RING_SIZE = 10
-# Interval (detik) polling perubahan clipboard di background thread.
-CLIPBOARD_POLL_INTERVAL_SEC = 0.5
