@@ -67,7 +67,6 @@ def create_document_blueprint(document_commands: DocumentCommandService) -> Blue
 
 def _is_trusted_local_origin(origin: str) -> bool:
     if origin == "null":
-        # Dashboard dapat dibuka langsung sebagai file lokal.
         return True
     return _is_loopback_host(urlparse(origin).hostname)
 

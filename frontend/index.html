@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
   <head>
     <meta charset="UTF-8" />
@@ -434,7 +434,6 @@
         transform: translateX(168%) skewX(-18deg);
       }
 
-      /* Video Section */
       .video-section {
         display: flex;
         flex-direction: column;
@@ -569,7 +568,6 @@
           0 24px 66px rgba(0, 0, 0, 0.38);
       }
 
-      /* Controls Section */
       .controls-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
@@ -739,7 +737,6 @@
         color: #ffffff;
       }
 
-      /* Status Cards */
       .status-container {
         display: flex;
         flex-direction: column;
@@ -873,7 +870,6 @@
         color: #ffe6a6;
       }
 
-      /* Software Selector */
       .software-selector {
         margin-bottom: 1.5rem;
         position: relative;
@@ -964,7 +960,6 @@
         transform: translateX(20%);
       }
 
-      /* Voice Typer Section */
       .voice-section {
         margin-top: 1.5rem;
         padding-top: 1.5rem;
@@ -1035,7 +1030,6 @@
           0 30px 72px rgba(0, 0, 0, 0.34), 0 0 54px rgba(82, 241, 255, 0.14);
       }
 
-      /* Document Finder */
       .document-section {
         border-top: 1px solid rgba(255, 255, 255, 0.14);
         padding-top: 1.35rem;
@@ -1266,7 +1260,6 @@
         background: rgba(255, 77, 109, 0.14);
       }
 
-      /* API Base URL config */
       .api-config {
         position: fixed;
         bottom: 1rem;
@@ -1473,7 +1466,6 @@
     </header>
 
     <div class="container">
-      <!-- Main Video Panel -->
       <div class="glass-panel video-section">
         <div class="video-container">
           <div class="video-placeholder" id="video-placeholder">
@@ -1547,7 +1539,6 @@
         </section>
       </div>
 
-      <!-- Sidebar Controls -->
       <div class="glass-panel">
         <div class="controls-grid">
           <button class="btn btn-success" onclick="apiCall('start')">
@@ -1571,7 +1562,6 @@
           </div>
         </div>
 
-        <!-- Software Selector -->
         <div class="software-selector">
           <h3><i class="fa-solid fa-layer-group"></i> Software Profil</h3>
           <div class="software-grid">
@@ -1606,7 +1596,6 @@
           </div>
         </div>
 
-        <!-- Voice Typer Section -->
         <div class="voice-section">
           <h3>
             <i class="fa-solid fa-microphone" id="voice-icon"></i> Voice Typer
@@ -1651,10 +1640,8 @@
     </div>
 
     <script>
-      // API Base URL
       const getBaseUrl = () => document.getElementById("api-url").value;
 
-      // Elements
       const elConnStatus = document.getElementById("connection-status");
       const elEngineStatus = document.getElementById("status-engine");
       const elGesture = document.getElementById("val-gesture");
@@ -1669,7 +1656,6 @@
       const videoStream = document.getElementById("video-stream");
       const videoPlaceholder = document.getElementById("video-placeholder");
 
-      // Browser Speech Recognition state
       let recognition = null;
       let isBrowserVoiceRunning = false;
       let lastDocumentRevision = null;
@@ -1719,13 +1705,11 @@
               }
             }
 
-            // Tampilkan output secara real-time
             elVoiceText.innerHTML = `
                         <span>${finalTranscript}</span>
                         <span style="color: var(--text-muted); font-style: italic;">${interimTranscript}</span>
                     `;
 
-            // Hanya kirim teks final ke backend untuk diketik
             for (let i = event.resultIndex; i < event.results.length; ++i) {
               if (event.results[i].isFinal) {
                 const text = event.results[i][0].transcript.trim();
@@ -1747,7 +1731,6 @@
           };
 
           recognition.onend = () => {
-            // Automatically restart if it was stopped unexpectedly by browser timeout
             if (isBrowserVoiceRunning && recognition) {
               try {
                 recognition.start();
@@ -1776,7 +1759,6 @@
         elVoiceBadge.className = "status-badge badge-inactive";
       }
 
-      // Setup Video Feed
       function updateVideoFeed() {
         videoStream.src = `${getBaseUrl()}/video_feed?t=${new Date().getTime()}`;
         videoStream.style.display = "block";
@@ -1899,7 +1881,6 @@
         }
       }
 
-      // Generic API Caller
       async function apiCall(endpoint, method = "POST", body = null) {
         try {
           const options = { method };
@@ -1918,30 +1899,24 @@
         }
       }
 
-      // Set Software
       function setSoftware(software) {
-        // Update UI
         document
           .querySelectorAll(".software-btn")
           .forEach((btn) => btn.classList.remove("active"));
         document.getElementById(`btn-${software}`).classList.add("active");
 
-        // Call API
         apiCall("set_software", "POST", { software });
       }
 
-      // Polling Status
       async function pollStatus() {
         try {
           const res = await fetch(`${getBaseUrl()}/status`);
           if (!res.ok) throw new Error("Network not ok");
           const data = await res.json();
 
-          // Connection Status
           elConnStatus.textContent = "Connected";
           elConnStatus.className = "status-badge badge-active";
 
-          // Engine Status
           if (data.is_active) {
             elEngineStatus.textContent = "ONLINE";
             elEngineStatus.className = "status-badge badge-active";
@@ -1956,11 +1931,9 @@
             elEngineStatus.className = "status-badge badge-warning";
           }
 
-          // Values
           elLockedId.textContent = data.locked_id || "None";
           elGesture.textContent = data.gesture_status || "--";
 
-          // Update Software UI based on backend state
           if (data.current_software) {
             document
               .querySelectorAll(".software-btn")
@@ -1969,7 +1942,6 @@
             if (btn) btn.classList.add("active");
           }
 
-          // Voice Typer Status
           if (data.voice_typer) {
             const vt = data.voice_typer;
             if (isBrowserVoiceRunning) {
@@ -2005,7 +1977,6 @@
         }
       }
 
-      // Initialize
       document
         .getElementById("api-url")
         .addEventListener("change", updateVideoFeed);
@@ -2014,9 +1985,8 @@
         if (event.key === "Enter") searchDocuments(false);
       });
 
-      // Start polling
       setInterval(pollStatus, 1000);
-      pollStatus(); // Initial poll
+      pollStatus();
     </script>
   </body>
 </html>

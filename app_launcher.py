@@ -13,7 +13,7 @@ def open_powerpoint_application():
         return False, "Fitur buka Microsoft PowerPoint otomatis hanya didukung di Windows."
 
     try:
-        import win32com.client  # type: ignore
+        import win32com.client
 
         powerpoint = win32com.client.Dispatch("PowerPoint.Application")
         powerpoint.Visible = True

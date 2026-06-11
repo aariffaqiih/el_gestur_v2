@@ -306,7 +306,7 @@ def _format_timestamp(timestamp: float) -> str:
 
 def _open_with_default_application(path: Path) -> None:
     if hasattr(os, "startfile"):
-        os.startfile(str(path))  # type: ignore[attr-defined]
+        os.startfile(str(path))
     elif sys.platform == "darwin":
         subprocess.Popen(["open", str(path)])
     else:
