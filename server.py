@@ -1,7 +1,3 @@
-# ============================================================
-# EL PRESENTASI v2.0 — MAIN SERVER (Universal Version)
-# ============================================================
-
 import cv2
 import os
 import threading
@@ -14,120 +10,112 @@ from object_lock import ObjectLocker
 from gestur_engine import GestureEngine
 from voice_typer import VoiceTyper
 from config import *
-from app_launcher import open_word_blank_document
-from desktop_shortcuts import get_redo_shortcut
+from app_launcher import open_powerpoint_application
 from document_api import create_document_blueprint
 from document_commands import DocumentCommandService
 from document_finder import DocumentFinder, resolve_search_roots
 from command_router import CommandRouter
-from snippet_api import create_snippet_blueprint
-from snippet_commands import SnippetCommandService
-from snippet_store import SnippetStore, resolve_snippet_store_path
-from clipboard_ring import ClipboardRing
-from clipboard_commands import ClipboardCommandService
-from clipboard_api import create_clipboard_blueprint
 
 app = Flask(__name__)
 CORS(app)
 
 global_frame = None
-
-# 🚨 STATE BARU: Nyimpen software apa yang lagi dipake (Default: PPT)
 current_software = "ppt"
+
 
 def handle_gesture(action):
     global current_software
 
-    # --- AKSI UNIVERSAL (berlaku di semua software) ---
-    if action == "left_click":
-        pyautogui.click()
+    if action == "alt_tab_start":
+        pyautogui.keyDown("alt")
+        pyautogui.press("tab")
         return
-    elif action == "copy":
-        pyautogui.hotkey('ctrl', 'c')
+    if action == "alt_tab_next":
+        pyautogui.press("tab")
         return
-    elif action == "paste":
-        pyautogui.hotkey('ctrl', 'v')
+    if action == "alt_tab_end":
+        pyautogui.keyUp("alt")
         return
-    elif action == "select_all":
-        pyautogui.hotkey('ctrl', 'a')
-        return
-    elif action == "undo":
-        pyautogui.hotkey('ctrl', 'z')
-        return
-    elif action == "redo":
-        pyautogui.hotkey(*get_redo_shortcut(current_software))
-        return
-    elif action == "alt_tab_start":
-        pyautogui.keyDown('alt')
-        pyautogui.press('tab')
-        return
-    elif action == "alt_tab_next":
-        pyautogui.press('tab')
-        return
-    elif action == "alt_tab_end":
-        pyautogui.keyUp('alt')
-        return
-    elif action == "voice_start":
+    if action == "voice_start":
         if voice_typer.is_running():
-            print("🎙️ Voice Typer sudah aktif. OK sign diabaikan.")
+            print("Voice Typer sudah aktif. OK sign diabaikan.")
         else:
             success = voice_typer.start()
-            print("✅ Voice Typer dimulai lewat OK sign." if success else "❌ Gagal memulai Voice Typer lewat OK sign.")
+            print("Voice Typer dimulai lewat OK sign." if success else "Gagal memulai Voice Typer lewat OK sign.")
         return
-    elif action == "open_word_blank":
-        success, message = open_word_blank_document()
-        print(("✅ " if success else "❌ ") + message)
+    if action == "open_powerpoint":
+        success, message = open_powerpoint_application()
+        print(("OK " if success else "ERROR ") + message)
         return
 
-    # --- PROFIL POWERPOINT (PPT) ---
     if current_software == "ppt":
-        if action == "next": pyautogui.press('right')
-        elif action == "prev": pyautogui.press('left')
+        if action == "next":
+            pyautogui.press("right")
+        elif action == "prev":
+            pyautogui.press("left")
         elif action == "laser_on":
-            pyautogui.keyDown('ctrl')
-            pyautogui.press('l')
-            pyautogui.keyUp('ctrl')
+            pyautogui.keyDown("ctrl")
+            pyautogui.press("l")
+            pyautogui.keyUp("ctrl")
         elif action == "laser_off":
-            pyautogui.keyDown('ctrl')
-            pyautogui.press('a')
-            pyautogui.keyUp('ctrl')
-        elif action == "start": pyautogui.press('f5')
-        elif action == "quit": pyautogui.press('esc')
+            pyautogui.keyDown("ctrl")
+            pyautogui.press("a")
+            pyautogui.keyUp("ctrl")
+        elif action == "start":
+            pyautogui.press("f5")
+        elif action == "quit":
+            pyautogui.press("esc")
 
-    # --- PROFIL CANVA ---
     elif current_software == "canva":
-        if action == "next": pyautogui.press('right')
-        elif action == "prev": pyautogui.press('left')
-        elif action == "laser_on": pyautogui.press('c') # Canva punya efek 'Confetti/Magic' pakai C
-        elif action == "laser_off": pyautogui.press('esc')
-        elif action == "start": pyautogui.hotkey('ctrl', 'alt', 'p') # Shortcut Present Canva
-        elif action == "quit": pyautogui.press('esc')
+        if action == "next":
+            pyautogui.press("right")
+        elif action == "prev":
+            pyautogui.press("left")
+        elif action == "laser_on":
+            pyautogui.press("c")
+        elif action == "laser_off":
+            pyautogui.press("esc")
+        elif action == "start":
+            pyautogui.hotkey("ctrl", "alt", "p")
+        elif action == "quit":
+            pyautogui.press("esc")
 
-    # --- PROFIL FIGMA (Prototype / Slides) ---
     elif current_software == "figma":
-        if action == "next": pyautogui.press('right')
-        elif action == "prev": pyautogui.press('left')
-        elif action == "laser_on": pyautogui.press('c') # Komen figma
-        elif action == "laser_off": pyautogui.press('v') # Move tool
-        elif action == "start": pyautogui.hotkey('ctrl', 'alt', 'enter') # Play figma
-        elif action == "quit": pyautogui.press('esc')
+        if action == "next":
+            pyautogui.press("right")
+        elif action == "prev":
+            pyautogui.press("left")
+        elif action == "laser_on":
+            pyautogui.press("c")
+        elif action == "laser_off":
+            pyautogui.press("v")
+        elif action == "start":
+            pyautogui.hotkey("ctrl", "alt", "enter")
+        elif action == "quit":
+            pyautogui.press("esc")
 
-    # --- PROFIL NOTION ---
     elif current_software == "notion":
-        if action == "next": pyautogui.press('pagedown') # Notion sifatnya di-scroll ke bawah
-        elif action == "prev": pyautogui.press('pageup')
-        elif action == "start": pyautogui.hotkey('ctrl', '\\') # Toggle sidebar biar full
-        elif action == "quit": pyautogui.hotkey('ctrl', '\\')
-        # Notion gak punya laser, biarin aja kosong
-        elif action == "laser_on": pass
-        elif action == "laser_off": pass
+        if action == "next":
+            pyautogui.press("pagedown")
+        elif action == "prev":
+            pyautogui.press("pageup")
+        elif action == "start":
+            pyautogui.hotkey("ctrl", "\\")
+        elif action == "quit":
+            pyautogui.hotkey("ctrl", "\\")
+        elif action == "laser_on":
+            pass
+        elif action == "laser_off":
+            pass
+
 
 def handle_cursor_move(x, y):
-    print(f"👉 KURSOR DITEKAN KE: ({x}, {y})")
+    print(f"KURSOR DITEKAN KE: ({x}, {y})")
     pyautogui.moveTo(x, y, _pause=False)
 
+
 locker = ObjectLocker()
-locker.is_active = True # Aktifkan langsung secara default tanpa harus menunggu web!
+locker.is_active = True
 engine = GestureEngine(callback=handle_gesture, cursor_callback=handle_cursor_move)
 document_finder = DocumentFinder(
     roots=resolve_search_roots(
@@ -141,23 +129,13 @@ document_finder = DocumentFinder(
     max_index_files=DOCUMENT_INDEX_MAX_FILES,
 )
 document_commands = DocumentCommandService(document_finder)
-snippet_store = SnippetStore(resolve_snippet_store_path(SNIPPET_STORE_PATH))
-snippet_commands = SnippetCommandService(snippet_store)
-clipboard_ring = ClipboardRing(
-    max_size=CLIPBOARD_RING_SIZE,
-    poll_interval=CLIPBOARD_POLL_INTERVAL_SEC,
-)
-clipboard_commands = ClipboardCommandService(clipboard_ring)
 command_router = CommandRouter([
-    clipboard_commands.handle_text,
     document_commands.handle_text,
-    snippet_commands.handle_text,
 ])
 voice_typer = VoiceTyper(command_handler=command_router.handle_text)
 app.register_blueprint(create_document_blueprint(document_commands))
-app.register_blueprint(create_snippet_blueprint(snippet_commands))
-app.register_blueprint(create_clipboard_blueprint(clipboard_commands))
 pyautogui.FAILSAFE = True
+
 
 def camera_loop():
     global global_frame
@@ -165,48 +143,43 @@ def camera_loop():
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
-    print("🎥 Pipeline Kamera berjalan...")
+    print("Pipeline Kamera berjalan...")
     while True:
         ret, frame = cap.read()
-        if not ret: break
+        if not ret:
+            break
         frame = cv2.flip(frame, 1)
 
         frame_annotated, presenter_roi = locker.process_frame(frame)
         if locker.is_active and locker.locked_id and presenter_roi:
             frame_annotated = engine.process_frame(frame_annotated, roi=presenter_roi)
 
-        ret, buffer = cv2.imencode('.jpg', frame_annotated)
-        if ret: global_frame = buffer.tobytes()
+        ret, buffer = cv2.imencode(".jpg", frame_annotated)
+        if ret:
+            global_frame = buffer.tobytes()
         cv2.imshow("Backend Server - El Presentasi", frame_annotated)
 
         key = cv2.waitKey(1) & 0xFF
-        if key == ord('q'): break
+        if key == ord("q"):
+            break
     cap.release()
     cv2.destroyAllWindows()
 
-# ==========================================
-# HTTP ENDPOINTS
-# ==========================================
 
-# 🚨 ENDPOINT BARU BUAT NERIMA PILIHAN SOFTWARE DARI WEB
-@app.route('/set_software', methods=['POST'])
+@app.route("/set_software", methods=["POST"])
 def set_software():
     global current_software
     data = request.json
-    selected = data.get('software')
+    selected = data.get("software")
     if selected in ["ppt", "canva", "figma", "notion"]:
         current_software = selected
-        print(f"🔄 TARGET SOFTWARE DIUBAH KE: {current_software.upper()}")
+        print(f"TARGET SOFTWARE DIUBAH KE: {current_software.upper()}")
         return jsonify({"status": "success", "software": current_software})
     return jsonify({"status": "error", "message": "Software tidak dikenali"}), 400
 
-# ==========================================
-# VOICE TYPER ENDPOINTS
-# ==========================================
 
-@app.route('/voice_start', methods=['POST'])
+@app.route("/voice_start", methods=["POST"])
 def voice_start():
-    """Mulai mendengarkan suara dan mengetik otomatis."""
     if voice_typer.is_running():
         return jsonify({"status": "already_running", "message": "Voice Typer sudah aktif."})
     success = voice_typer.start()
@@ -214,26 +187,26 @@ def voice_start():
         return jsonify({"status": "success", "message": "Voice Typer dimulai."})
     return jsonify({"status": "error", "message": "Gagal memulai Voice Typer."}), 500
 
-@app.route('/voice_stop', methods=['POST'])
+
+@app.route("/voice_stop", methods=["POST"])
 def voice_stop():
-    """Hentikan voice typer."""
     voice_typer.stop()
     return jsonify({"status": "success", "message": "Voice Typer dihentikan."})
 
-@app.route('/voice_status', methods=['GET'])
+
+@app.route("/voice_status", methods=["GET"])
 def voice_status():
-    """Ambil status voice typer (untuk polling dari frontend)."""
     return jsonify(voice_typer.get_status())
 
-@app.route('/type', methods=['POST'])
+
+@app.route("/type", methods=["POST"])
 def type_text():
-    """Menerima teks dari browser dan langsung mengetikkannya."""
     data = request.get_json(silent=True) or {}
-    text = data.get('text', '')
+    text = data.get("text", "")
     return jsonify(voice_typer.process_text(text))
 
 
-@app.route('/status', methods=['GET'])
+@app.route("/status", methods=["GET"])
 def get_status():
     return jsonify({
         "is_active": locker.is_active,
@@ -242,55 +215,55 @@ def get_status():
         "current_software": current_software,
         "voice_typer": voice_typer.get_status(),
         "documents": document_commands.get_status(),
-        "snippets": snippet_commands.get_status(),
-        "clipboard": clipboard_commands.get_status(),
     })
 
-@app.route('/start', methods=['POST'])
+
+@app.route("/start", methods=["POST"])
 def start_engine():
     locker.is_active = True
     return jsonify({"status": "success"})
 
-@app.route('/stop', methods=['POST'])
+
+@app.route("/stop", methods=["POST"])
 def stop_engine():
     locker.is_active = False
     locker.unlock()
     return jsonify({"status": "success"})
 
-@app.route('/lock', methods=['POST'])
+
+@app.route("/lock", methods=["POST"])
 def force_lock():
     if locker.is_active:
         locker.wants_to_lock = True
         return jsonify({"message": "Sinyal kunci dikirim"})
     return jsonify({"message": "Gagal. Nyalakan engine!"}), 400
 
-@app.route('/unlock', methods=['POST'])
+
+@app.route("/unlock", methods=["POST"])
 def force_unlock():
     locker.unlock()
     return jsonify({"message": "Presenter dilepas."})
+
 
 def generate_frames():
     global global_frame
     while True:
         if global_frame is not None:
-            yield (b'--frame\r\n' b'Content-Type: image/jpeg\r\n\r\n' + global_frame + b'\r\n')
+            yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + global_frame + b"\r\n")
         else:
             time.sleep(0.1)
 
-@app.route('/video_feed')
+
+@app.route("/video_feed")
 def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+    return Response(generate_frames(), mimetype="multipart/x-mixed-replace; boundary=frame")
 
-if __name__ == '__main__':
-    # Mulai monitoring clipboard di background
-    clipboard_ring.start()
 
-    # Jalankan Flask Server di background thread agar Main Thread bisa digunakan untuk OpenCV GUI
+if __name__ == "__main__":
     flask_thread = threading.Thread(
-        target=lambda: app.run(host='0.0.0.0', port=5000, debug=False, use_reloader=False),
-        daemon=True
+        target=lambda: app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False),
+        daemon=True,
     )
     flask_thread.start()
 
-    # Jalankan kamera loop di Main Thread (Wajib untuk OpenCV GUI / cv2.imshow agar tidak crash)
     camera_loop()

@@ -1,23 +1,15 @@
-# ============================================================
-# MANDOR AI — VOICE TYPER MODULE
-# Fitur: Mengetik teks dengan suara (Bahasa Indonesia)
-# Engine: Google Web Speech API (gratis, tanpa API key)
-# ============================================================
-
 import speech_recognition as sr
 import pyautogui
 import threading
 import time
 import sys
 
-# Fix Windows console encoding agar emoji tidak crash
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
 except Exception:
     pass
 
 def _safe_print(*args, **kwargs):
-    """Print yang aman untuk Windows (fallback jika emoji gagal)."""
     try:
         print(*args, **kwargs)
     except UnicodeEncodeError:
@@ -25,11 +17,6 @@ def _safe_print(*args, **kwargs):
         print(text.encode('ascii', 'replace').decode('ascii'), **kwargs)
 
 class VoiceTyper:
-    """
-    Modul Voice-to-Text yang berjalan di background thread.
-    Mendengarkan suara dari mikrofon, mengenali ucapan dalam
-    Bahasa Indonesia, lalu mengetikkan hasilnya ke aplikasi aktif.
-    """
 
     def __init__(self, command_handler=None):
         self.recognizer = sr.Recognizer()
@@ -39,20 +26,15 @@ class VoiceTyper:
         self._stop_event = threading.Event()
         self._is_running = False
 
-        # --- Konfigurasi Recognizer ---
-        # Sesuaikan sensitivitas untuk lingkungan yang agak berisik
-        self.recognizer.energy_threshold = 300        # Batas minimum energi suara
-        self.recognizer.dynamic_energy_threshold = True  # Auto-adjust ke lingkungan
-        self.recognizer.pause_threshold = 0.8         # Detik diam sebelum dianggap selesai bicara
-        self.recognizer.phrase_threshold = 0.3        # Minimum durasi frasa
+        self.recognizer.energy_threshold = 300
+        self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.pause_threshold = 0.8
+        self.recognizer.phrase_threshold = 0.3
 
-        # --- State publik (bisa dibaca oleh server/frontend) ---
         self.last_text = ""
-        self.status = "idle"   # idle | listening | processing | error
+        self.status = "idle"
         self.error_msg = ""
 
-        # --- Command keywords (vokal → aksi keyboard) ---
-        # Pengguna bisa bilang ini kapan saja saat voice typer aktif
         self.VOICE_COMMANDS = {
             "tekan enter":      lambda: pyautogui.press('enter'),
             "baris baru":       lambda: pyautogui.press('enter'),
@@ -69,14 +51,9 @@ class VoiceTyper:
 
         _safe_print("🎙️  VoiceTyper modul dimuat. Siap digunakan.")
 
-    # ========================================================
-    # INTERNAL: Loop Utama (berjalan di thread terpisah)
-    # ========================================================
     def _listen_loop(self):
-        """Loop utama yang terus mendengarkan mikrofon."""
         _safe_print("🎙️  VoiceTyper: Mulai mendengarkan...")
 
-        # Kalibrasi noise ambient sekali saat mulai
         try:
             with self.microphone as source:
                 self.status = "calibrating"
@@ -96,14 +73,12 @@ class VoiceTyper:
                 self.error_msg = ""
 
                 with self.microphone as source:
-                    # Dengarkan audio (timeout 5 detik, phrase_time_limit 15 detik)
                     audio = self.recognizer.listen(
                         source,
                         timeout=5,
                         phrase_time_limit=15
                     )
 
-                # Proses audio → teks
                 self.status = "processing"
                 text = self.recognizer.recognize_google(audio, language="id-ID")
                 text = text.strip()
@@ -115,21 +90,17 @@ class VoiceTyper:
                 self.process_text(text)
 
             except sr.WaitTimeoutError:
-                # Tidak ada suara selama 5 detik — lanjut loop
                 continue
             except sr.UnknownValueError:
-                # Audio terdengar tapi tidak bisa dikenali
                 _safe_print("🔇 Suara tidak dikenali, ulangi...")
                 continue
             except sr.RequestError as e:
-                # Masalah jaringan / API
                 self.status = "error"
                 self.error_msg = f"Error API: {e}"
                 _safe_print(f"⚠️  {self.error_msg}. Retry dalam 2 detik...")
                 time.sleep(2)
                 continue
             except Exception as e:
-                # Error tak terduga
                 self.status = "error"
                 self.error_msg = str(e)
                 _safe_print(f"❌ Error: {e}")
@@ -140,14 +111,7 @@ class VoiceTyper:
         self._is_running = False
         _safe_print("🎙️  VoiceTyper: Berhenti mendengarkan.")
 
-    # ========================================================
-    # INTERNAL: Eksekusi Voice Command
-    # ========================================================
     def _try_execute_command(self, text):
-        """
-        Cek apakah teks yang dikenali adalah voice command.
-        Return True jika command ditemukan dan dieksekusi.
-        """
         lowered = text.lower().strip()
         for keyword, action in self.VOICE_COMMANDS.items():
             if lowered == keyword:
@@ -157,7 +121,6 @@ class VoiceTyper:
         return False
 
     def _try_execute_dynamic_command(self, text):
-        """Jalankan command handler opsional untuk perintah dengan parameter dinamis."""
         if self._command_handler is None:
             return None
         try:
@@ -172,28 +135,16 @@ class VoiceTyper:
             _safe_print(f"⚡ Dynamic Voice Command: \"{text}\"")
         return result
 
-    # ========================================================
-    # INTERNAL: Ketik Teks ke Aplikasi Aktif
-    # ========================================================
     def _type_text(self, text):
-        """
-        Mengetik teks menggunakan pyperclip + pyautogui hotkey paste.
-        Ini JAUH lebih andal daripada pyautogui.typewrite() karena:
-        1. Mendukung karakter Unicode / non-ASCII (huruf Indonesia, emoji)
-        2. Lebih cepat (satu operasi paste vs karakter per karakter)
-        """
         try:
             import pyperclip
             pyperclip.copy(text + " ")
             pyautogui.hotkey('ctrl', 'v')
             _safe_print(f"✍️  Diketik: \"{text}\"")
         except ImportError:
-            # Fallback: pakai pyautogui.write (terbatas ASCII)
-            # Untuk karakter non-ASCII, kita pakai Windows clipboard API
             self._clipboard_type(text + " ")
 
     def _clipboard_type(self, text):
-        """Fallback: tulis ke clipboard Windows dan paste."""
         try:
             import subprocess
             process = subprocess.Popen(
@@ -204,13 +155,11 @@ class VoiceTyper:
             pyautogui.hotkey('ctrl', 'v')
             _safe_print(f"✍️  Diketik (via clip): \"{text.strip()}\"")
         except Exception as e:
-            # Ultimate fallback: pakai pyautogui.write
             safe_text = text.encode('ascii', 'replace').decode('ascii')
             pyautogui.write(safe_text, interval=0.02)
             _safe_print(f"✍️  Diketik (fallback): \"{safe_text.strip()}\"")
 
     def process_text(self, text):
-        """Proses satu frasa dari mikrofon backend atau browser secara konsisten."""
         stripped_text = str(text).strip()
         if not stripped_text:
             return {"status": "empty"}
@@ -229,14 +178,9 @@ class VoiceTyper:
         return {"status": "success", "typed": stripped_text}
 
     def set_command_handler(self, command_handler):
-        """Ganti handler command dinamis tanpa membuat ulang recognizer mikrofon."""
         self._command_handler = command_handler
 
-    # ========================================================
-    # PUBLIC API: Start / Stop / Status
-    # ========================================================
     def start(self):
-        """Mulai mendengarkan suara di background thread."""
         if self._is_running:
             _safe_print("⚠️  VoiceTyper sudah berjalan!")
             return False
@@ -248,7 +192,6 @@ class VoiceTyper:
         return True
 
     def stop(self):
-        """Hentikan voice typer."""
         if not self._is_running:
             _safe_print("⚠️  VoiceTyper tidak sedang berjalan.")
             return False
@@ -260,11 +203,9 @@ class VoiceTyper:
         return True
 
     def is_running(self):
-        """Apakah voice typer sedang aktif?"""
         return self._is_running
 
     def get_status(self):
-        """Kembalikan dict status untuk endpoint API."""
         return {
             "is_running": self._is_running,
             "status": self.status,
@@ -273,9 +214,6 @@ class VoiceTyper:
         }
 
 
-# ============================================================
-# TEST MANDIRI
-# ============================================================
 if __name__ == "__main__":
     _safe_print("=" * 60)
     _safe_print("🎙️  TEST VOICE TYPER — Bahasa Indonesia")

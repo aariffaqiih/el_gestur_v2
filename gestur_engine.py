@@ -1,9 +1,3 @@
-# ============================================================
-# MANDOR AI v2.0 — GESTURE ENGINE
-# Pendekatan: Velocity Spike + Dynamic ROI Scaling + Euclidean
-# Fitur: Swipe, Redo, Start, Laser, Quit, utility gesture, dan kontrol cursor
-# ============================================================
-
 import cv2
 import mediapipe as mp
 import time
@@ -17,9 +11,6 @@ mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
 mp_styles = mp.solutions.drawing_styles
 
-# ============================================================
-# ONE EURO FILTER — Adaptive Low-Pass Filter untuk Cursor
-# ============================================================
 class OneEuroFilter:
     def __init__(self, t0, x0, min_cutoff=1.0, beta=0.01, d_cutoff=1.0):
         self.min_cutoff = min_cutoff
@@ -45,9 +36,6 @@ class OneEuroFilter:
         tau = 1.0 / (2.0 * math.pi * cutoff)
         return 1.0 / (1.0 + tau / dt)
 
-# ============================================================
-# GESTURE ENGINE — Mesin Utama Deteksi Gestur
-# ============================================================
 class GestureEngine:
     def __init__(self, callback, cursor_callback=None):
         self.callback = callback
@@ -58,76 +46,28 @@ class GestureEngine:
             min_detection_confidence=MP_DETECTION_CONFIDENCE,
             min_tracking_confidence=MP_TRACKING_CONFIDENCE
         )
-
         self.position_buffer = {"Left": deque(maxlen=20), "Right": deque(maxlen=20)}
-        self.redo_swipe_detector = HorizontalSwipeDetector(
-            HorizontalSwipeConfig(
-                action="redo",
-                direction="right",
-                min_distance_ratio=REDO_SWIPE_MIN_DISTANCE_RATIO,
-                min_speed_ratio_per_second=REDO_SWIPE_MIN_SPEED_RATIO,
-                max_vertical_ratio=REDO_SWIPE_MAX_VERTICAL_RATIO,
-                sample_window_ms=REDO_SWIPE_WINDOW_MS,
-                min_samples=REDO_SWIPE_MIN_SAMPLES,
-            )
-        )
         self.last_action_time = 0
         self.current_cooldown = 0
         self.last_action_name = ""
-
         self.start_state = {
             "Left": {"stage": 0, "fist_time": 0, "initial_y": 0, "raised": False},
             "Right": {"stage": 0, "fist_time": 0, "initial_y": 0, "raised": False}
         }
-
-        # Quit memakai dua kepalan berdampingan agar tidak menyerupai pose satu tangan.
         self.quit_intent_start = None
         self.quit_triggered = False
-
         self.laser_active = False
         self.laser_pose_intent_start = {"Left": None, "Right": None}
         self.laser_pose_toggled = {"Left": False, "Right": False}
-
-        # State: Select All (dua tanda damai)
-        self.select_all_intent_start = None
-        self.select_all_triggered = False
-        self.last_select_all_time = 0   # Cooldown independen, tidak berbagi dengan gestur lain
-
-        # State: Open Microsoft Word (dua jempol ke atas)
-        self.word_intent_start = None
-        self.word_triggered = False
-        self.last_word_time = 0         # Cooldown independen agar tidak membuat banyak dokumen
-
-        # State: Thumbs Up (👍) → Klik Kiri
-        self.thumbsup_intent_start = {"Left": None, "Right": None}
-        self.thumbsup_triggered = {"Left": False, "Right": False}
-
-        # State: Pinch (🤏) → Copy (Ctrl+C)
-        self.pinch_intent_start = {"Left": None, "Right": None}
-        self.pinch_triggered = {"Left": False, "Right": False}
-
-        # State: Shaka (jempol + kelingking) → Undo (Ctrl+Z)
-        self.undo_intent_start = {"Left": None, "Right": None}
-        self.undo_triggered = {"Left": False, "Right": False}
-
-        # State: OK sign → Mulai Voice Typer
         self.voice_start_intent_start = None
         self.voice_start_triggered = False
         self.last_voice_start_time = 0
-
-        # State: Peace (✌️) → Paste (Ctrl+V)
-        self.peace_intent_start = {"Left": None, "Right": None}
-        self.peace_triggered = {"Left": False, "Right": False}
-
-        # State: ILY (🤟) → Alt+Tab (pindah aplikasi)
         self.ily_intent_start = None
-        self.ily_active = False        # Apakah Alt sedang di-hold?
-        self.ily_last_tab_time = 0     # Kapan terakhir Tab ditekan?
-
+        self.ily_active = False
+        self.ily_last_tab_time = 0
         self.filter_x, self.filter_y = None, None
         self.last_cursor_x, self.last_cursor_y = None, None
         self.screen_w, self.screen_h = pyautogui.size()
-
         print("✅ GestureEngine v2.6 siap!")
 
     def _in_cooldown(self):
@@ -144,9 +84,6 @@ class GestureEngine:
     def _calc_dist(p1, p2, w, h):
         return math.hypot((p1.x - p2.x) * w, (p1.y - p2.y) * h)
 
-    # ========================================================
-    # PENDETEKSI POSE TANGAN
-    # ========================================================
     def _is_hand_open(self, landmarks, frame_w, frame_h):
         wrist, tips, pips = landmarks[0], [8, 12, 16, 20], [6, 10, 14, 18]
         open_count = sum(1 for t, p in zip(tips, pips) if self._calc_dist(wrist, landmarks[t], frame_w, frame_h) > self._calc_dist(wrist, landmarks[p], frame_w, frame_h))
@@ -155,56 +92,13 @@ class GestureEngine:
     def _is_fist(self, landmarks):
         return all(landmarks[tip].y > landmarks[mcp].y for tip, mcp in zip([8, 12, 16, 20], [5, 9, 13, 17]))
 
-    def _is_redo_fist_pose(self, landmarks, w, h):
-        """Kepalan untuk Redo tidak boleh menyerupai thumbs-up atau pinch Copy."""
-        return (
-            self._is_fist(landmarks) and
-            not self._is_thumbs_up(landmarks, w, h) and
-            not self._is_pinch_pose(landmarks, w, h)
-        )
-
-    def _is_l_pose(self, landmarks, w, h):
-        """Pose L: jempol dan telunjuk terbuka, tiga jari lain menekuk."""
-        d, wrist = self._calc_dist, landmarks[0]
-        return (d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 1.05 and
-                d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h) * 1.05 and
-                d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) and
-                d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) and
-                d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h))
-
     def _is_index_pointing(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
-        # Telunjuk terbuka, jari tengah, manis, dan kelingking mengepal.
-        # Jempol bebas (tidak usah terlalu ketat karena tiap orang cara mengepalnya beda)
         return (d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h) and
                 d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) and
                 d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) and
                 d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h))
 
-    # --- THUMBS UP (👍) UNTUK KLIK KIRI ---
-    def _is_thumbs_up(self, landmarks, w, h):
-        d, wrist = self._calc_dist, landmarks[0]
-        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h)
-        thumb_up = landmarks[4].y < landmarks[3].y
-        fingers_curled = all(
-            d(wrist, landmarks[tip], w, h) < d(wrist, landmarks[pip], w, h)
-            for tip, pip in [(8, 6), (12, 10), (16, 14), (20, 18)]
-        )
-        return thumb_open and thumb_up and fingers_curled
-
-    # --- PINCH (🤏) UNTUK COPY ---
-    def _is_pinch_pose(self, landmarks, w, h):
-        d, wrist = self._calc_dist, landmarks[0]
-        pinch_dist = d(landmarks[4], landmarks[8], w, h)
-        ref_dist = d(wrist, landmarks[5], w, h)
-        pinch_close = pinch_dist < ref_dist * 0.4
-        others_curled = all(
-            d(wrist, landmarks[tip], w, h) < d(wrist, landmarks[pip], w, h)
-            for tip, pip in [(12, 10), (16, 14), (20, 18)]
-        )
-        return pinch_close and others_curled
-
-    # --- SHAKA (🤙) UNTUK UNDO ---
     def _is_shaka_pose(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
         thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 1.05
@@ -214,38 +108,17 @@ class GestureEngine:
         ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
         return thumb_open and pinky_open and index_curled and middle_curled and ring_curled
 
-    # --- OK SIGN UNTUK MULAI VOICE TYPER ---
     def _is_ok_pose(self, landmarks, w, h):
-        """
-        Deteksi pose OK: jempol menyentuh telunjuk, sedangkan jari tengah,
-        manis, dan kelingking terbuka. Bentuk ini berbeda tegas dari pinch Copy.
-        """
         d, wrist = self._calc_dist, landmarks[0]
         thumb_tip = landmarks[4]
-        ref_dist = max(d(wrist, landmarks[9], w, h), 1.0)  # panjang referensi telapak
-
+        ref_dist = max(d(wrist, landmarks[9], w, h), 1.0)
         index_close = d(thumb_tip, landmarks[8], w, h) < ref_dist * 0.40
         middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h) * 1.05
         ring_open = d(wrist, landmarks[16], w, h) > d(wrist, landmarks[14], w, h) * 1.05
-
-        # Ketiga jari luar wajib terbuka agar tidak menyerupai pinch Copy.
         pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h) * 1.05
-
-        # Hindari false-positive dari kepalan penuh yang sangat dekat ke telapak.
         thumb_not_collapsed_to_wrist = d(wrist, thumb_tip, w, h) > ref_dist * 0.45
-
         return index_close and middle_open and ring_open and pinky_open and thumb_not_collapsed_to_wrist
 
-    # --- PEACE (✌️) UNTUK PASTE ---
-    def _is_peace_pose(self, landmarks, w, h):
-        d, wrist = self._calc_dist, landmarks[0]
-        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h)
-        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h)
-        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
-        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h)
-        return index_open and middle_open and ring_curled and pinky_curled
-
-    # --- ILY / I LOVE YOU (🤟) UNTUK ALT+TAB ---
     def _is_ily_pose(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
         thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h)
@@ -255,65 +128,40 @@ class GestureEngine:
         ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
         return thumb_open and index_open and pinky_open and middle_curled and ring_curled
 
-    # ========================================================
-    # LOGIKA GESTUR AKSI
-    # ========================================================
-
     @staticmethod
     def _get_two_hands(all_hands):
         if len(all_hands) < 2:
             return None
         return all_hands[0][1], all_hands[1][1]
 
-    def _is_double_fist_quit_pose(self, all_hands):
+    def _is_prayer_quit_pose(self, all_hands, w, h):
         two_hands = self._get_two_hands(all_hands)
         if not two_hands:
             return False
         left_lm, right_lm = two_hands
-        wrist_distance_x = abs(left_lm[0].x - right_lm[0].x)
-        wrist_distance_y = abs(left_lm[0].y - right_lm[0].y)
-        average_wrist_y = (left_lm[0].y + right_lm[0].y) / 2.0
-        return (
-            self._is_fist(left_lm) and
-            self._is_fist(right_lm) and
-            wrist_distance_x <= 0.32 and
-            wrist_distance_y <= 0.20 and
-            0.25 <= average_wrist_y <= 0.68
-        )
-
-    def _is_select_all_pose(self, all_hands, frame_w, frame_h):
-        two_hands = self._get_two_hands(all_hands)
-        if not two_hands:
+        if not self._is_hand_open(left_lm, w, h) or not self._is_hand_open(right_lm, w, h):
             return False
-        left_lm, right_lm = two_hands
-        wrist_distance_x = abs(left_lm[0].x - right_lm[0].x)
-        wrist_distance_y = abs(left_lm[0].y - right_lm[0].y)
-        return (
-            self._is_peace_pose(left_lm, frame_w, frame_h) and
-            self._is_peace_pose(right_lm, frame_w, frame_h) and
-            0.08 <= wrist_distance_x <= 0.65 and
-            wrist_distance_y <= 0.25
-        )
+        d = self._calc_dist
+        tip_pairs = [(8, 8), (12, 12), (16, 16), (20, 20)]
+        ref_dist = max(d(left_lm[0], left_lm[9], w, h), 1.0)
+        close_count = 0
+        for lt, rt in tip_pairs:
+            tip_dist = math.hypot(
+                (left_lm[lt].x - right_lm[rt].x) * w,
+                (left_lm[lt].y - right_lm[rt].y) * h
+            )
+            if tip_dist < ref_dist * 0.60:
+                close_count += 1
+        return close_count >= 3
 
-    def _is_open_word_pose(self, all_hands, frame_w, frame_h):
-        two_hands = self._get_two_hands(all_hands)
-        return bool(
-            two_hands and
-            self._is_thumbs_up(two_hands[0], frame_w, frame_h) and
-            self._is_thumbs_up(two_hands[1], frame_w, frame_h)
-        )
-
-    # --- LOGIKA QUIT (DUA KEPALAN BERDAMPINGAN) ---
     def _process_quit_state(self, all_hands, w, h):
-        double_fist = self._is_double_fist_quit_pose(all_hands)
-
-        if double_fist:
+        prayer = self._is_prayer_quit_pose(all_hands, w, h)
+        if prayer:
             self.start_state["Left"]["stage"] = 0
             self.start_state["Right"]["stage"] = 0
             if self.quit_intent_start is None:
                 self.quit_intent_start = time.time()
                 self.quit_triggered = False
-                print("Dua kepalan terdeteksi. Menahan untuk keluar presentasi...")
             elif (not self.quit_triggered and
                   time.time() - self.quit_intent_start >= INTENT_QUIT_SEC):
                 if not self._in_cooldown():
@@ -323,20 +171,16 @@ class GestureEngine:
             self.quit_intent_start = None
             self.quit_triggered = False
 
-    # --- LOGIKA START ---
     def _detect_start_presentation(self, hand_label, landmarks, frame_w, frame_h):
         state = self.start_state[hand_label]
         is_fist, current_y = self._is_fist(landmarks), landmarks[0].y
-
         if state["stage"] == 0:
             if is_fist and current_y > 0.60:
                 state.update({"stage": 1, "fist_time": time.time(), "initial_y": current_y, "raised": False})
-                print(f"⚠️ [{hand_label}] Start Presentation: Ancang-ancang...")
         elif state["stage"] == 1:
             if is_fist:
                 if time.time() - state["fist_time"] >= INTENT_FIST_SEC:
                     state["stage"] = 2
-                    print(f"🔥 [{hand_label}] Start Presentation: Terkunci! Angkat tangan.")
             else: state["stage"] = 0
         elif state["stage"] == 2:
             if current_y < state["initial_y"] - 0.20: state["raised"] = True
@@ -346,38 +190,8 @@ class GestureEngine:
                     self.start_state["Left"]["stage"] = self.start_state["Right"]["stage"] = 0
                 else: state["stage"] = 0
 
-    # --- LOGIKA REDO (SATU KEPALAN SWIPE KE KANAN) ---
-    def _process_redo_gesture(self, valid_hands, frame_w, frame_h, *, blocked):
-        """
-        Redo hanya aktif untuk satu tangan valid agar tidak bentrok dengan Quit.
-        Detektor motion memakai buffer tersendiri supaya swipe telapak untuk slide
-        tetap independen dari swipe kepalan untuk Redo.
-        """
-        if blocked or self._in_cooldown() or len(valid_hands) != 1:
-            self.redo_swipe_detector.reset()
-            return
-
-        hand_label, landmarks = valid_hands[0]
-        if not self._is_redo_fist_pose(landmarks, frame_w, frame_h):
-            self.redo_swipe_detector.reset(hand_label)
-            return
-
-        action = self.redo_swipe_detector.update(
-            hand_label,
-            x=landmarks[0].x,
-            y=landmarks[0].y,
-            frame_width=frame_w,
-            frame_height=frame_h,
-        )
-        if action:
-            self.start_state["Left"]["stage"] = 0
-            self.start_state["Right"]["stage"] = 0
-            self.position_buffer[hand_label].clear()
-            self._trigger_action(action, COOLDOWN_REDO_MS)
-
-    # --- LOGIKA LASER ---
     def _detect_laser_toggle(self, hand_label, landmarks, area_w, area_h):
-        if self._is_l_pose(landmarks, area_w, area_h):
+        if self._is_shaka_pose(landmarks, area_w, area_h):
             if self.laser_pose_intent_start[hand_label] is None:
                 self.laser_pose_intent_start[hand_label] = time.time()
             elif (not self.laser_pose_toggled[hand_label] and
@@ -385,7 +199,6 @@ class GestureEngine:
                 self.laser_active = not self.laser_active
                 self.laser_pose_toggled[hand_label] = True
                 self.filter_x = self.filter_y = self.last_cursor_x = self.last_cursor_y = None
-                print("🔴 LASER AKTIF" if self.laser_active else "⚫ LASER NONAKTIF")
                 self._trigger_action("laser_on" if self.laser_active else "laser_off", COOLDOWN_LASER_TOGGLE_MS)
         else:
             self.laser_pose_intent_start[hand_label] = None
@@ -394,88 +207,27 @@ class GestureEngine:
     def _track_index_finger(self, landmarks, area_w, area_h):
         if not self.cursor_callback: return
         raw_x, raw_y = landmarks[8].x, landmarks[8].y
-        box_w, box_h = LASER_BOX_X_MAX - LASER_BOX_X_MIN, LASER_BOX_Y_MAX - LASER_BOX_Y_MIN
+        box_w = LASER_BOX_X_MAX - LASER_BOX_X_MIN
+        box_h = LASER_BOX_Y_MAX - LASER_BOX_Y_MIN
         norm_x = max(0.0, min(1.0, (raw_x - LASER_BOX_X_MIN) / box_w))
         norm_y = max(0.0, min(1.0, (raw_y - LASER_BOX_Y_MIN) / box_h))
         screen_x, screen_y = norm_x * self.screen_w, norm_y * self.screen_h
-
         now = time.time()
         if self.filter_x is None:
             self.filter_x = OneEuroFilter(now, screen_x, LASER_MIN_CUTOFF, LASER_BETA, LASER_D_CUTOFF)
             self.filter_y = OneEuroFilter(now, screen_y, LASER_MIN_CUTOFF, LASER_BETA, LASER_D_CUTOFF)
             self.last_cursor_x, self.last_cursor_y = screen_x, screen_y
-
-        filtered_x, filtered_y = self.filter_x(now, screen_x), self.filter_y(now, screen_y)
+        filtered_x = self.filter_x(now, screen_x)
+        filtered_y = self.filter_y(now, screen_y)
         if abs(filtered_x - self.last_cursor_x) < LASER_DEADZONE_PX and abs(filtered_y - self.last_cursor_y) < LASER_DEADZONE_PX: return
         self.last_cursor_x, self.last_cursor_y = filtered_x, filtered_y
         self.cursor_callback(int(filtered_x), int(filtered_y))
 
-    # --- LOGIKA SELECT ALL (DUA TANDA DAMAI) ---
-    def _detect_select_all(self, all_hands, frame_w, frame_h):
-        """
-        Dipanggil setelah seluruh tangan pada frame diproses.
-        Menggunakan cooldown INDEPENDEN agar tidak diblokir oleh
-        cooldown bersama dari gestur swipe / laser.
-        """
-        both_peace = self._is_select_all_pose(all_hands, frame_w, frame_h)
-
-        if both_peace:
-            if self.select_all_intent_start is None:
-                self.select_all_intent_start = time.time()
-                self.select_all_triggered = False
-                print("Dua tanda damai terdeteksi. Menahan untuk Select All...")
-            elif (not self.select_all_triggered and
-                  time.time() - self.select_all_intent_start >= INTENT_SELECT_ALL_SEC):
-                now_ms = time.time() * 1000
-                if now_ms - self.last_select_all_time >= COOLDOWN_SELECT_ALL_MS:
-                    self.last_select_all_time = now_ms
-                    self.select_all_triggered = True
-                    self.last_action_name = "select_all"
-                    print("🎯 AKSI DIEKSEKUSI: SELECT_ALL")
-                    self.callback("select_all")
-        else:
-            self.select_all_intent_start = None
-            self.select_all_triggered = False
-
-    # --- LOGIKA OPEN WORD (DUA JEMPOL KE ATAS) ---
-    def _detect_open_word_blank(self, all_hands, frame_w, frame_h):
-        """
-        Trigger ketika kedua tangan membentuk pose jempol ke atas.
-        Cooldown dibuat independen supaya tidak dipengaruhi gesture lain, tetapi tetap
-        mencegah banyak dokumen Word terbuka saat pose tertahan lama.
-        """
-        both_thumbs_up = self._is_open_word_pose(all_hands, frame_w, frame_h)
-
-        if both_thumbs_up:
-            if self.word_intent_start is None:
-                self.word_intent_start = time.time()
-                self.word_triggered = False
-                print("Dua jempol ke atas terdeteksi. Menahan untuk buka Microsoft Word...")
-            elif (not self.word_triggered and
-                  time.time() - self.word_intent_start >= INTENT_WORD_SEC):
-                now_ms = time.time() * 1000
-                cooldown_ms = COOLDOWN_WORD_MS
-                if now_ms - self.last_word_time >= cooldown_ms:
-                    self.last_word_time = now_ms
-                    self.word_triggered = True
-                    self.last_action_name = "open_word_blank"
-                    print("🎯 AKSI DIEKSEKUSI: OPEN_WORD_BLANK")
-                    self.callback("open_word_blank")
-        else:
-            self.word_intent_start = None
-            self.word_triggered = False
-
-    # --- LOGIKA MULAI VOICE TYPER (OK SIGN) ---
     def _process_voice_start_state(self, voice_start_detected):
-        """
-        Trigger satu kali ketika pose OK ditahan. Cooldown independen agar
-        tidak membuat VoiceTyper start berulang saat pose masih tertahan.
-        """
         if voice_start_detected:
             if self.voice_start_intent_start is None:
                 self.voice_start_intent_start = time.time()
                 self.voice_start_triggered = False
-                print("Pose OK terdeteksi. Menahan untuk mulai Voice Typer...")
             elif (not self.voice_start_triggered and
                   time.time() - self.voice_start_intent_start >= INTENT_VOICE_START_SEC):
                 now_ms = time.time() * 1000
@@ -484,232 +236,89 @@ class GestureEngine:
                     self.last_voice_start_time = now_ms
                     self.voice_start_triggered = True
                     self.last_action_name = "voice_start"
-                    print("🎯 AKSI DIEKSEKUSI: VOICE_START")
                     self.callback("voice_start")
         else:
             self.voice_start_intent_start = None
             self.voice_start_triggered = False
 
-    # --- LOGIKA LEFT CLICK (👍 Thumbs Up) ---
-    def _detect_left_click(self, hand_label, landmarks, w, h):
-        if self._is_thumbs_up(landmarks, w, h):
-            if self.thumbsup_intent_start[hand_label] is None:
-                self.thumbsup_intent_start[hand_label] = time.time()
-                self.thumbsup_triggered[hand_label] = False
-            elif (not self.thumbsup_triggered[hand_label] and
-                  time.time() - self.thumbsup_intent_start[hand_label] >= INTENT_THUMBSUP_SEC):
-                if not self._in_cooldown():
-                    self.thumbsup_triggered[hand_label] = True
-                    self._trigger_action("left_click", COOLDOWN_THUMBSUP_MS)
-        else:
-            self.thumbsup_intent_start[hand_label] = None
-            self.thumbsup_triggered[hand_label] = False
-
-    # --- LOGIKA COPY (🤏 Pinch) ---
-    def _detect_copy(self, hand_label, landmarks, w, h):
-        if self._is_pinch_pose(landmarks, w, h):
-            if self.pinch_intent_start[hand_label] is None:
-                self.pinch_intent_start[hand_label] = time.time()
-                self.pinch_triggered[hand_label] = False
-            elif (not self.pinch_triggered[hand_label] and
-                  time.time() - self.pinch_intent_start[hand_label] >= INTENT_PINCH_SEC):
-                if not self._in_cooldown():
-                    self.pinch_triggered[hand_label] = True
-                    self._trigger_action("copy", COOLDOWN_PINCH_MS)
-        else:
-            self.pinch_intent_start[hand_label] = None
-            self.pinch_triggered[hand_label] = False
-
-    # --- LOGIKA UNDO (🤙 Shaka) ---
-    def _detect_undo(self, hand_label, landmarks, w, h):
-        if self._is_shaka_pose(landmarks, w, h):
-            if self.undo_intent_start[hand_label] is None:
-                self.undo_intent_start[hand_label] = time.time()
-                self.undo_triggered[hand_label] = False
-            elif (not self.undo_triggered[hand_label] and
-                  time.time() - self.undo_intent_start[hand_label] >= INTENT_UNDO_SEC):
-                if not self._in_cooldown():
-                    self.undo_triggered[hand_label] = True
-                    self._trigger_action("undo", COOLDOWN_UNDO_MS)
-        else:
-            self.undo_intent_start[hand_label] = None
-            self.undo_triggered[hand_label] = False
-
-    # --- LOGIKA PASTE (✌️ Peace) ---
-    def _detect_paste(self, hand_label, landmarks, w, h):
-        if self._is_peace_pose(landmarks, w, h):
-            if self.peace_intent_start[hand_label] is None:
-                self.peace_intent_start[hand_label] = time.time()
-                self.peace_triggered[hand_label] = False
-            elif (not self.peace_triggered[hand_label] and
-                  time.time() - self.peace_intent_start[hand_label] >= INTENT_PEACE_SEC):
-                if not self._in_cooldown():
-                    self.peace_triggered[hand_label] = True
-                    self._trigger_action("paste", COOLDOWN_PEACE_MS)
-        else:
-            self.peace_intent_start[hand_label] = None
-            self.peace_triggered[hand_label] = False
-
     def _reset_hand_state(self, hand_label):
-        self.laser_pose_intent_start[hand_label] = None
-        self.laser_pose_toggled[hand_label] = False
-        self.thumbsup_intent_start[hand_label] = None
-        self.thumbsup_triggered[hand_label] = False
-        self.pinch_intent_start[hand_label] = None
-        self.pinch_triggered[hand_label] = False
-        self.undo_intent_start[hand_label] = None
-        self.undo_triggered[hand_label] = False
-        self.peace_intent_start[hand_label] = None
-        self.peace_triggered[hand_label] = False
-        self.start_state[hand_label]["stage"] = 0
-        self.redo_swipe_detector.reset(hand_label)
+        pass
 
     def _reset_inactive_hand_states(self, active_hand_labels):
-        """Reset timer per-tangan saat tangan hilang dari ROI atau frame."""
         for hand_label in ("Left", "Right"):
             if hand_label not in active_hand_labels:
                 self._reset_hand_state(hand_label)
 
-    # --- LOGIKA ALT+TAB (🤟 ILY) ---
     def _process_ily_state(self, ily_detected, w, h):
-        """
-        State machine untuk Alt+Tab:
-        1. Hold 🤟 >= INTENT_ILY_SEC → Alt down + Tab (buka switcher)
-        2. Terus hold → Tab ditekan berulang setiap ILY_TAB_REPEAT_MS
-        3. Lepas 🤟 → Alt di-release (aplikasi terpilih)
-        """
         if ily_detected:
             if self.ily_intent_start is None:
                 self.ily_intent_start = time.time()
-                print("🤟 ILY Terdeteksi! Menahan untuk Alt+Tab...")
             elif not self.ily_active and time.time() - self.ily_intent_start >= INTENT_ILY_SEC:
                 self.ily_active = True
                 self.ily_last_tab_time = time.time() * 1000
                 self.last_action_name = "alt_tab_start"
-                print("🎯 AKSI DIEKSEKUSI: ALT_TAB_START")
                 self.callback("alt_tab_start")
             elif self.ily_active:
                 now_ms = time.time() * 1000
                 if now_ms - self.ily_last_tab_time >= ILY_TAB_REPEAT_MS:
                     self.ily_last_tab_time = now_ms
                     self.last_action_name = "alt_tab_next"
-                    print("🎯 AKSI DIEKSEKUSI: ALT_TAB_NEXT")
                     self.callback("alt_tab_next")
         else:
             if self.ily_active:
                 self.ily_active = False
                 self.last_action_name = "alt_tab_end"
-                print("🎯 AKSI DIEKSEKUSI: ALT_TAB_END")
                 self.callback("alt_tab_end")
             self.ily_intent_start = None
 
-    # --- LOGIKA SWIPE ---
     def _detect_swipe(self, hand_label, landmarks, frame_w, frame_h):
         if not self._is_hand_open(landmarks, frame_w, frame_h) or not (0.15 <= landmarks[9].y <= 0.90):
             self.position_buffer[hand_label].clear(); return
-
         buf = self.position_buffer[hand_label]
         buf.append((landmarks[9].x * frame_w, landmarks[9].y * frame_h, time.time() * 1000))
         if len(buf) < 4: return
-
         recent = list(buf)[-4:]
-        velocities_x = [ (recent[i][0] - recent[i-1][0]) / ((recent[i][2] - recent[i-1][2]) / 1000.0)
-                         for i in range(1, len(recent)) if recent[i][2] > recent[i-1][2] ]
-
+        velocities_x = [(recent[i][0] - recent[i-1][0]) / ((recent[i][2] - recent[i-1][2]) / 1000.0)
+                        for i in range(1, len(recent)) if recent[i][2] > recent[i-1][2]]
         if not velocities_x: return
-        peak_velocity, delta_total = max(velocities_x, key=abs), buf[-1][0] - buf[-4][0]
-
+        peak_velocity = max(velocities_x, key=abs)
+        delta_total = buf[-1][0] - buf[-4][0]
         if abs(peak_velocity) < (frame_w * 0.4) or abs(delta_total) < (frame_w * 0.15): return
-
         arah = "kanan" if delta_total > 0 else "kiri"
         if arah != ("kanan" if peak_velocity > 0 else "kiri"): return
-
         self._trigger_action("next" if arah == "kanan" else "prev", COOLDOWN_SWIPE_MS)
         buf.clear()
 
-    # ========================================================
-    # PROCESS FRAME — Pipeline Utama & Routing
-    # ========================================================
     def process_frame(self, frame, roi=None):
         h, w = frame.shape[:2]
-
-        # Selalu proses full frame agar MediaPipe stabil (tidak terganggu getaran kotak YOLO)
         results = self.hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-
-        # all_hands  : SEMUA tangan terdeteksi (tanpa filter ROI).
-        #              Dipakai oleh gestur DUA-tangan agar tidak diblokir
-        #              saat user merentangkan tangan keluar kotak YOLO.
-        # valid_hands: Tangan yang lolos filter ROI.
-        #              Dipakai oleh gestur PER-tangan (swipe, laser, start).
-        all_hands   = []
+        all_hands = []
         valid_hands = []
-        ily_detected = False  # Flag per-frame untuk gesture ILY (🤟)
-        voice_start_detected = False  # Flag per-frame untuk gesture mulai Voice Typer (OK sign)
+        ily_detected = False
+        voice_start_detected = False
         two_hand_utility_pose = False
-
         if results.multi_hand_landmarks:
             for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
                 hand_label = "Left" if hand_info.classification[0].label == "Right" else "Right"
                 all_hands.append((hand_label, hand_landmarks.landmark))
-
-            two_hand_utility_pose = (
-                self._is_double_fist_quit_pose(all_hands) or
-                self._is_open_word_pose(all_hands, w, h) or
-                self._is_select_all_pose(all_hands, w, h)
-            )
-
             for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
                 hand_label = "Left" if hand_info.classification[0].label == "Right" else "Right"
                 lm = hand_landmarks.landmark
-
-                # Jika ada ROI presenter, pastikan tangan berada di dalam kotak tersebut
                 if roi:
                     rx1, ry1, rx2, ry2 = roi
-                    # Patokan posisi pergelangan tangan (landmark 0)
                     wrist = hand_landmarks.landmark[0]
                     wx, wy = int(wrist.x * w), int(wrist.y * h)
-                    # Beri padding toleransi sebesar 30px di sekeliling kotak YOLO
                     pad = 30
                     if not (rx1 - pad <= wx <= rx2 + pad and ry1 - pad <= wy <= ry2 + pad):
-                        continue # Abaikan jika di luar kotak presenter
-
-                # Gambar landmark secara utuh dan indah
+                        continue
                 mp_draw.draw_landmarks(
-                    frame,
-                    hand_landmarks,
-                    mp_hands.HAND_CONNECTIONS,
+                    frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
                     mp_styles.get_default_hand_landmarks_style(),
                     mp_styles.get_default_hand_connections_style()
                 )
-
                 valid_hands.append((hand_label, lm))
-
-                if two_hand_utility_pose:
-                    self._reset_hand_state(hand_label)
-                    self.position_buffer[hand_label].clear()
-                    continue
-
-                # 1. Cek gesture laser secara independen.
                 self._detect_laser_toggle(hand_label, lm, w, h)
-
-                # 2. Cek Gestur Utility (bekerja di semua mode)
-                voice_start_pose = self._is_ok_pose(lm, w, h)
-                if voice_start_pose:
-                    voice_start_detected = True
-                    # Cegah transisi OK sign ikut terbaca sebagai pinch copy.
-                    self.pinch_intent_start[hand_label] = None
-                    self.pinch_triggered[hand_label] = False
-                else:
-                    self._detect_copy(hand_label, lm, w, h)
-
-                self._detect_left_click(hand_label, lm, w, h)
-                self._detect_undo(hand_label, lm, w, h)
-                self._detect_paste(hand_label, lm, w, h)
-                if self._is_ily_pose(lm, w, h):
-                    ily_detected = True
-
-                # 3. Routing Aksi Inti (Berdasarkan Status Laser)
-                if voice_start_pose:
+                if voice_start_detected:
                     self.position_buffer[hand_label].clear()
                     self.start_state[hand_label]["stage"] = 0
                 elif self.laser_active:
@@ -722,27 +331,11 @@ class GestureEngine:
                     else:
                         self.position_buffer[hand_label].clear()
                         self.start_state[hand_label]["stage"] = 0
-
         active_hand_labels = {hand_label for hand_label, _ in valid_hands}
         self._reset_inactive_hand_states(active_hand_labels)
-        self._process_redo_gesture(
-            valid_hands,
-            w,
-            h,
-            blocked=two_hand_utility_pose or self.laser_active,
-        )
-
-        # --- Gesture satu-tangan pasca-loop: diproses sekali agar tangan lain tidak mereset state ---
         self._process_voice_start_state(voice_start_detected)
-
-        # --- Gestur Dua-Tangan: gunakan all_hands (tanpa filter ROI) ---
         self._process_quit_state(all_hands, w, h)
-        self._detect_open_word_blank(all_hands, w, h)
-        self._detect_select_all(all_hands, w, h)
-
-        # --- ILY Alt+Tab: state machine diproses setelah semua tangan dicek ---
         self._process_ily_state(ily_detected, w, h)
-
         return frame
 
     def get_status(self):
@@ -756,8 +349,6 @@ if __name__ == "__main__":
     cap = cv2.VideoCapture(CAMERA_INDEX)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
-    print("=" * 60 + "\n🤖 TEST GESTURE ENGINE v2.5\nBuat dua kepalan berdampingan untuk Quit Presentation!\n" + "=" * 60)
-
     while True:
         ret, frame = cap.read()
         if not ret: break

@@ -1,17 +1,44 @@
 import time
 import unittest
+import sys
+from collections import deque
+from types import ModuleType
 from types import SimpleNamespace
 
-from config import COOLDOWN_UNDO_MS, INTENT_UNDO_SEC
+from config import (
+    INTENT_POWERPOINT_SEC,
+)
+
+
+def install_gesture_dependency_stubs():
+    cv2_stub = ModuleType("cv2")
+    cv2_stub.COLOR_BGR2RGB = 0
+    cv2_stub.cvtColor = lambda frame, _code: frame
+    sys.modules.setdefault("cv2", cv2_stub)
+
+    pyautogui_stub = ModuleType("pyautogui")
+    pyautogui_stub.size = lambda: (1920, 1080)
+    sys.modules.setdefault("pyautogui", pyautogui_stub)
+
+    mediapipe_stub = ModuleType("mediapipe")
+    mediapipe_stub.solutions = SimpleNamespace(
+        hands=SimpleNamespace(Hands=object, HAND_CONNECTIONS=()),
+        drawing_utils=SimpleNamespace(draw_landmarks=lambda *args, **kwargs: None),
+        drawing_styles=SimpleNamespace(
+            get_default_hand_landmarks_style=lambda: None,
+            get_default_hand_connections_style=lambda: None,
+        ),
+    )
+    sys.modules.setdefault("mediapipe", mediapipe_stub)
+
+
+install_gesture_dependency_stubs()
+
 from gestur_engine import GestureEngine
 
 
 def lm(x, y):
     return SimpleNamespace(x=x, y=y)
-
-
-def shift_pose(landmarks, dx):
-    return [lm(point.x + dx, point.y) for point in landmarks]
 
 
 def base_hand():
@@ -27,32 +54,27 @@ def curled_fingers_pose():
     return hand
 
 
-def shaka_pose():
+def circle_left_pose():
     hand = curled_fingers_pose()
-    hand[2] = lm(0.08, 0.05)
-    hand[3] = lm(0.12, 0.03)
-    hand[4] = lm(0.22, 0.02)
-    hand[18] = lm(0.20, 0.16)
-    hand[20] = lm(0.30, 0.42)
+    hand[0] = lm(0.34, 0.62)
+    hand[2] = lm(0.40, 0.58)
+    hand[4] = lm(0.49, 0.64)
+    hand[5] = lm(0.40, 0.50)
+    hand[6] = lm(0.43, 0.46)
+    hand[8] = lm(0.49, 0.36)
+    hand[9] = lm(0.38, 0.50)
     return hand
 
 
-def peace_pose():
+def circle_right_pose():
     hand = curled_fingers_pose()
-    hand[2] = lm(0.10, 0.05)
-    hand[4] = lm(0.06, 0.06)
-    hand[6] = lm(0.05, 0.20)
-    hand[8] = lm(0.05, 0.42)
-    hand[10] = lm(0.10, 0.20)
-    hand[12] = lm(0.10, 0.42)
-    return hand
-
-
-def thumbs_up_pose():
-    hand = curled_fingers_pose()
-    hand[2] = lm(0.08, 0.08)
-    hand[3] = lm(0.12, 0.08)
-    hand[4] = lm(0.18, 0.00)
+    hand[0] = lm(0.66, 0.62)
+    hand[2] = lm(0.60, 0.58)
+    hand[4] = lm(0.51, 0.64)
+    hand[5] = lm(0.60, 0.50)
+    hand[6] = lm(0.57, 0.46)
+    hand[8] = lm(0.51, 0.36)
+    hand[9] = lm(0.62, 0.50)
     return hand
 
 
@@ -63,37 +85,33 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.engine._is_fist = GestureEngine._is_fist.__get__(self.engine, GestureEngine)
         self.engine._is_hand_open = GestureEngine._is_hand_open.__get__(self.engine, GestureEngine)
         self.engine._is_l_pose = GestureEngine._is_l_pose.__get__(self.engine, GestureEngine)
-        self.engine._is_thumbs_up = GestureEngine._is_thumbs_up.__get__(self.engine, GestureEngine)
-        self.engine._is_peace_pose = GestureEngine._is_peace_pose.__get__(self.engine, GestureEngine)
-        self.engine._is_shaka_pose = GestureEngine._is_shaka_pose.__get__(self.engine, GestureEngine)
-        self.engine._is_select_all_pose = GestureEngine._is_select_all_pose.__get__(self.engine, GestureEngine)
-        self.engine._is_open_word_pose = GestureEngine._is_open_word_pose.__get__(self.engine, GestureEngine)
-        self.engine._detect_undo = GestureEngine._detect_undo.__get__(self.engine, GestureEngine)
+        self.engine._is_open_powerpoint_pose = GestureEngine._is_open_powerpoint_pose.__get__(self.engine, GestureEngine)
+        self.engine._detect_open_powerpoint = GestureEngine._detect_open_powerpoint.__get__(self.engine, GestureEngine)
+        self.engine._detect_swipe = GestureEngine._detect_swipe.__get__(self.engine, GestureEngine)
+        self.engine.position_buffer = {"Left": deque(maxlen=20), "Right": deque(maxlen=20)}
 
-    def test_shaka_pose_triggers_undo(self):
-        self.engine.undo_intent_start = {"Left": time.time() - INTENT_UNDO_SEC - 0.1, "Right": None}
-        self.engine.undo_triggered = {"Left": False, "Right": False}
-        self.engine._in_cooldown = lambda: False
+    def test_two_hand_circle_opens_powerpoint_pose_only(self):
+        all_hands = [("Left", circle_left_pose()), ("Right", circle_right_pose())]
+
+        self.assertTrue(self.engine._is_open_powerpoint_pose(all_hands, 1_000, 800))
+
+    def test_held_two_hand_circle_triggers_powerpoint(self):
+        self.engine.powerpoint_intent_start = time.time() - INTENT_POWERPOINT_SEC - 0.1
+        self.engine.powerpoint_triggered = False
+        self.engine.last_powerpoint_time = 0
+        self.engine.last_action_name = ""
         actions = []
-        self.engine._trigger_action = lambda action, cooldown: actions.append((action, cooldown))
+        self.engine.callback = actions.append
 
-        self.engine._detect_undo("Left", shaka_pose(), 1_000, 800)
+        self.engine._detect_open_powerpoint(
+            [("Left", circle_left_pose()), ("Right", circle_right_pose())],
+            1_000,
+            800,
+        )
 
-        self.assertEqual([("undo", COOLDOWN_UNDO_MS)], actions)
-
-    def test_double_peace_is_select_all_not_laser_l_pose(self):
-        left = peace_pose()
-        right = shift_pose(peace_pose(), 0.25)
-
-        self.assertTrue(self.engine._is_select_all_pose([("Left", left), ("Right", right)], 1_000, 800))
-        self.assertFalse(self.engine._is_l_pose(left, 1_000, 800))
-
-    def test_double_thumbs_up_opens_word(self):
-        left = thumbs_up_pose()
-        right = shift_pose(thumbs_up_pose(), 0.25)
-
-        self.assertTrue(self.engine._is_open_word_pose([("Left", left), ("Right", right)], 1_000, 800))
-        self.assertFalse(self.engine._is_select_all_pose([("Left", left), ("Right", right)], 1_000, 800))
+        self.assertEqual(["open_powerpoint"], actions)
+        self.assertEqual("open_powerpoint", self.engine.last_action_name)
+        self.assertTrue(self.engine.powerpoint_triggered)
 
 
 if __name__ == "__main__":
