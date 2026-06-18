@@ -5,7 +5,6 @@ import math
 import pyautogui
 from collections import deque
 from config import *
-from gesture_motion import HorizontalSwipeConfig, HorizontalSwipeDetector
 
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils
@@ -54,6 +53,10 @@ class GestureEngine:
             "Left": {"stage": 0, "fist_time": 0, "initial_y": 0, "raised": False},
             "Right": {"stage": 0, "fist_time": 0, "initial_y": 0, "raised": False}
         }
+        self.stop_state = {
+            "Left": {"stage": 0, "fist_time": 0},
+            "Right": {"stage": 0, "fist_time": 0}
+        }
         self.quit_intent_start = None
         self.quit_triggered = False
         self.laser_active = False
@@ -65,6 +68,10 @@ class GestureEngine:
         self.ily_intent_start = None
         self.ily_active = False
         self.ily_last_tab_time = 0
+        self.circle_intent_start = None
+        self.circle_triggered = False
+        self.new_slide_intent_start = None
+        self.new_slide_triggered = False
         self.filter_x, self.filter_y = None, None
         self.last_cursor_x, self.last_cursor_y = None, None
         self.screen_w, self.screen_h = pyautogui.size()
@@ -128,11 +135,32 @@ class GestureEngine:
         ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
         return thumb_open and index_open and pinky_open and middle_curled and ring_curled
 
+    def _is_peace_pose(self, landmarks, w, h):
+        d = self._calc_dist
+        wrist = landmarks[0]
+        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h)
+        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h)
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
+        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h)
+        thumb_curled = d(wrist, landmarks[4], w, h) < d(wrist, landmarks[2], w, h) * 1.5
+        return index_open and middle_open and ring_curled and pinky_curled and thumb_curled
+
     @staticmethod
     def _get_two_hands(all_hands):
         if len(all_hands) < 2:
             return None
         return all_hands[0][1], all_hands[1][1]
+
+    def _is_circle_pose(self, all_hands, w, h):
+        two_hands = self._get_two_hands(all_hands)
+        if not two_hands:
+            return False
+        left_lm, right_lm = two_hands
+        d = self._calc_dist
+        ref_dist = max(d(left_lm[0], left_lm[9], w, h), 1.0)
+        thumb_dist = math.hypot((left_lm[4].x - right_lm[4].x) * w, (left_lm[4].y - right_lm[4].y) * h)
+        index_dist = math.hypot((left_lm[8].x - right_lm[8].x) * w, (left_lm[8].y - right_lm[8].y) * h)
+        return thumb_dist < ref_dist * 0.50 and index_dist < ref_dist * 0.50
 
     def _is_prayer_quit_pose(self, all_hands, w, h):
         two_hands = self._get_two_hands(all_hands)
@@ -171,24 +199,43 @@ class GestureEngine:
             self.quit_intent_start = None
             self.quit_triggered = False
 
+    def _process_circle_state(self, all_hands, w, h):
+        if self._is_circle_pose(all_hands, w, h):
+            if self.circle_intent_start is None:
+                self.circle_intent_start = time.time()
+                self.circle_triggered = False
+            elif (not self.circle_triggered and 
+                  time.time() - self.circle_intent_start >= INTENT_POWERPOINT_SEC):
+                if not self._in_cooldown():
+                    self.circle_triggered = True
+                    self._trigger_action("open_powerpoint", COOLDOWN_POWERPOINT_MS)
+        else:
+            self.circle_intent_start = None
+            self.circle_triggered = False
+
     def _detect_start_presentation(self, hand_label, landmarks, frame_w, frame_h):
         state = self.start_state[hand_label]
-        is_fist, current_y = self._is_fist(landmarks), landmarks[0].y
-        if state["stage"] == 0:
-            if is_fist and current_y > 0.60:
-                state.update({"stage": 1, "fist_time": time.time(), "initial_y": current_y, "raised": False})
-        elif state["stage"] == 1:
-            if is_fist:
-                if time.time() - state["fist_time"] >= INTENT_FIST_SEC:
-                    state["stage"] = 2
-            else: state["stage"] = 0
-        elif state["stage"] == 2:
-            if current_y < state["initial_y"] - 0.20: state["raised"] = True
-            if self._is_hand_open(landmarks, frame_w, frame_h):
-                if state["raised"]:
+        if self._is_peace_pose(landmarks, frame_w, frame_h):
+            if state["stage"] == 0:
+                state.update({"stage": 1, "peace_time": time.time()})
+            elif state["stage"] == 1:
+                if time.time() - state.get("peace_time", time.time()) >= INTENT_FIST_SEC:
                     self._trigger_action("start", COOLDOWN_START_MS)
                     self.start_state["Left"]["stage"] = self.start_state["Right"]["stage"] = 0
-                else: state["stage"] = 0
+        else:
+            state["stage"] = 0
+
+    def _detect_stop_presentation(self, hand_label, landmarks):
+        state = self.stop_state[hand_label]
+        if self._is_fist(landmarks):
+            if state["stage"] == 0:
+                state.update({"stage": 1, "fist_time": time.time()})
+            elif state["stage"] == 1:
+                if time.time() - state.get("fist_time", time.time()) >= INTENT_FIST_SEC:
+                    self._trigger_action("quit", COOLDOWN_QUIT_MS)
+                    self.stop_state["Left"]["stage"] = self.stop_state["Right"]["stage"] = 0
+        else:
+            state["stage"] = 0
 
     def _detect_laser_toggle(self, hand_label, landmarks, area_w, area_h):
         if self._is_shaka_pose(landmarks, area_w, area_h):
@@ -240,6 +287,20 @@ class GestureEngine:
         else:
             self.voice_start_intent_start = None
             self.voice_start_triggered = False
+
+    def _process_new_slide_state(self, ok_detected):
+        if ok_detected:
+            if self.new_slide_intent_start is None:
+                self.new_slide_intent_start = time.time()
+                self.new_slide_triggered = False
+            elif (not self.new_slide_triggered and
+                  time.time() - self.new_slide_intent_start >= INTENT_NEW_SLIDE_SEC):
+                if not self._in_cooldown():
+                    self.new_slide_triggered = True
+                    self._trigger_action("new_slide", COOLDOWN_NEW_SLIDE_MS)
+        else:
+            self.new_slide_intent_start = None
+            self.new_slide_triggered = False
 
     def _reset_hand_state(self, hand_label):
         pass
@@ -296,6 +357,7 @@ class GestureEngine:
         valid_hands = []
         ily_detected = False
         voice_start_detected = False
+        ok_detected = False
         two_hand_utility_pose = False
         if results.multi_hand_landmarks:
             for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
@@ -318,6 +380,10 @@ class GestureEngine:
                 )
                 valid_hands.append((hand_label, lm))
                 self._detect_laser_toggle(hand_label, lm, w, h)
+                if self._is_ily_pose(lm, w, h):
+                    ily_detected = True
+                if self._is_ok_pose(lm, w, h):
+                    ok_detected = True
                 if voice_start_detected:
                     self.position_buffer[hand_label].clear()
                     self.start_state[hand_label]["stage"] = 0
@@ -328,14 +394,18 @@ class GestureEngine:
                     if not self._in_cooldown():
                         self._detect_swipe(hand_label, lm, w, h)
                         self._detect_start_presentation(hand_label, lm, w, h)
+                        self._detect_stop_presentation(hand_label, lm)
                     else:
                         self.position_buffer[hand_label].clear()
                         self.start_state[hand_label]["stage"] = 0
+                        self.stop_state[hand_label]["stage"] = 0
         active_hand_labels = {hand_label for hand_label, _ in valid_hands}
         self._reset_inactive_hand_states(active_hand_labels)
         self._process_voice_start_state(voice_start_detected)
         self._process_quit_state(all_hands, w, h)
         self._process_ily_state(ily_detected, w, h)
+        self._process_circle_state(all_hands, w, h)
+        self._process_new_slide_state(ok_detected)
         return frame
 
     def get_status(self):

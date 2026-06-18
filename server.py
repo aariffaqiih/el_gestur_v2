@@ -65,6 +65,15 @@ def handle_gesture(action):
             pyautogui.press("f5")
         elif action == "quit":
             pyautogui.press("esc")
+        elif action == "new_slide":
+            pyautogui.hotkey("ctrl", "m")
+            time.sleep(0.5)
+            pyautogui.press("tab")
+            pyautogui.press("tab")
+            pyautogui.press("enter")
+            if not voice_typer.is_running():
+                success = voice_typer.start()
+                print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
 
     elif current_software == "canva":
         if action == "next":
