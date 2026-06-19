@@ -35,12 +35,17 @@ class VoiceTyper:
         self.status = "idle"
         self.error_msg = ""
 
+        # Platform-specific hotkey shortcuts
+        is_mac = sys.platform == "darwin"
+        cmd_key = "command" if is_mac else "ctrl"
+        word_delete_key = "option" if is_mac else "ctrl"
+
         self.VOICE_COMMANDS = {
             "tekan enter":      lambda: pyautogui.press('enter'),
             "baris baru":       lambda: pyautogui.press('enter'),
             "enter":            lambda: pyautogui.press('enter'),
-            "hapus":            lambda: pyautogui.hotkey('ctrl', 'backspace'),
-            "hapus semua":      lambda: (pyautogui.hotkey('ctrl', 'a'), pyautogui.press('delete')),
+            "hapus":            lambda: pyautogui.hotkey(word_delete_key, 'backspace'),
+            "hapus semua":      lambda: (pyautogui.hotkey(cmd_key, 'a'), pyautogui.press('delete')),
             "spasi":            lambda: pyautogui.press('space'),
             "tab":              lambda: pyautogui.press('tab'),
             "titik":            lambda: pyautogui.typewrite('.', interval=0),
@@ -136,24 +141,34 @@ class VoiceTyper:
         return result
 
     def _type_text(self, text):
+        is_mac = sys.platform == "darwin"
+        cmd_key = "command" if is_mac else "ctrl"
         try:
             import pyperclip
             pyperclip.copy(text + " ")
-            pyautogui.hotkey('ctrl', 'v')
+            pyautogui.hotkey(cmd_key, 'v')
             _safe_print(f"✍️  Diketik: \"{text}\"")
         except ImportError:
             self._clipboard_type(text + " ")
 
     def _clipboard_type(self, text):
+        is_mac = sys.platform == "darwin"
+        cmd_key = "command" if is_mac else "ctrl"
         try:
             import subprocess
-            process = subprocess.Popen(
-                ['clip'], stdin=subprocess.PIPE, shell=True
-            )
-            process.communicate(text.encode('utf-16-le'))
+            if is_mac:
+                process = subprocess.Popen(
+                    ['pbcopy'], stdin=subprocess.PIPE
+                )
+                process.communicate(text.encode('utf-8'))
+            else:
+                process = subprocess.Popen(
+                    ['clip'], stdin=subprocess.PIPE, shell=True
+                )
+                process.communicate(text.encode('utf-16-le'))
             time.sleep(0.05)
-            pyautogui.hotkey('ctrl', 'v')
-            _safe_print(f"✍️  Diketik (via clip): \"{text.strip()}\"")
+            pyautogui.hotkey(cmd_key, 'v')
+            _safe_print(f"✍️  Diketik (via clipboard): \"{text.strip()}\"")
         except Exception as e:
             safe_text = text.encode('ascii', 'replace').decode('ascii')
             pyautogui.write(safe_text, interval=0.02)

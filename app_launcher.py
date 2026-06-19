@@ -52,6 +52,13 @@ def force_foreground():
         pass
 
 def open_powerpoint_application():
+    if sys.platform == "darwin":
+        try:
+            subprocess.Popen(["open", "-a", "Microsoft PowerPoint"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True, "Success on macOS"
+        except Exception as mac_error:
+            return False, f"Failed to open PowerPoint on macOS: {str(mac_error)}"
+
     if sys.platform != "win32":
         return False, "Unsupported platform"
 

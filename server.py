@@ -1,5 +1,6 @@
 import cv2
 import os
+import sys
 import threading
 import pyautogui
 import time
@@ -26,15 +27,20 @@ current_software = "ppt"
 def handle_gesture(action):
     global current_software
 
+    is_mac = sys.platform == "darwin"
+    cmd_key = "command" if is_mac else "ctrl"
+    alt_key = "option" if is_mac else "alt"
+    switcher_key = "command" if is_mac else "alt"
+
     if action == "alt_tab_start":
-        pyautogui.keyDown("alt")
+        pyautogui.keyDown(switcher_key)
         pyautogui.press("tab")
         return
     if action == "alt_tab_next":
         pyautogui.press("tab")
         return
     if action == "alt_tab_end":
-        pyautogui.keyUp("alt")
+        pyautogui.keyUp(switcher_key)
         return
     if action == "voice_start":
         if voice_typer.is_running():
@@ -54,23 +60,29 @@ def handle_gesture(action):
         elif action == "prev":
             pyautogui.press("left")
         elif action == "laser_on":
-            pyautogui.keyDown("ctrl")
+            pyautogui.keyDown(cmd_key)
             pyautogui.press("l")
-            pyautogui.keyUp("ctrl")
+            pyautogui.keyUp(cmd_key)
         elif action == "laser_off":
-            pyautogui.keyDown("ctrl")
+            pyautogui.keyDown(cmd_key)
             pyautogui.press("a")
-            pyautogui.keyUp("ctrl")
+            pyautogui.keyUp(cmd_key)
         elif action == "start":
-            pyautogui.press("f5")
+            if is_mac:
+                pyautogui.hotkey("command", "shift", "return")
+            else:
+                pyautogui.press("f5")
         elif action == "quit":
             pyautogui.press("esc")
         elif action == "new_slide":
-            pyautogui.hotkey("ctrl", "m")
-            time.sleep(0.5)
-            pyautogui.press("tab")
-            pyautogui.press("tab")
-            pyautogui.press("enter")
+            if is_mac:
+                pyautogui.hotkey("command", "shift", "n")
+            else:
+                pyautogui.hotkey("ctrl", "m")
+                time.sleep(0.5)
+                pyautogui.press("tab")
+                pyautogui.press("tab")
+                pyautogui.press("enter")
             if not voice_typer.is_running():
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
@@ -85,7 +97,7 @@ def handle_gesture(action):
         elif action == "laser_off":
             pyautogui.press("esc")
         elif action == "start":
-            pyautogui.hotkey("ctrl", "alt", "p")
+            pyautogui.hotkey(cmd_key, alt_key, "p")
         elif action == "quit":
             pyautogui.press("esc")
 
@@ -99,7 +111,7 @@ def handle_gesture(action):
         elif action == "laser_off":
             pyautogui.press("v")
         elif action == "start":
-            pyautogui.hotkey("ctrl", "alt", "enter")
+            pyautogui.hotkey(cmd_key, alt_key, "enter")
         elif action == "quit":
             pyautogui.press("esc")
 
@@ -109,9 +121,9 @@ def handle_gesture(action):
         elif action == "prev":
             pyautogui.press("pageup")
         elif action == "start":
-            pyautogui.hotkey("ctrl", "\\")
+            pyautogui.hotkey(cmd_key, "\\")
         elif action == "quit":
-            pyautogui.hotkey("ctrl", "\\")
+            pyautogui.hotkey(cmd_key, "\\")
         elif action == "laser_on":
             pass
         elif action == "laser_off":
@@ -154,6 +166,7 @@ def camera_loop():
 
     print("Pipeline Kamera berjalan...")
     while True:
+        start_time = time.time()
         ret, frame = cap.read()
         if not ret:
             break
@@ -166,13 +179,23 @@ def camera_loop():
         ret, buffer = cv2.imencode(".jpg", frame_annotated)
         if ret:
             global_frame = buffer.tobytes()
-        cv2.imshow("Backend Server - El Presentasi", frame_annotated)
 
-        key = cv2.waitKey(1) & 0xFF
-        if key == ord("q"):
-            break
+        # Frame rate controller
+        elapsed = time.time() - start_time
+        delay = (1.0 / CAMERA_FPS) - elapsed
+
+        if SHOW_BACKEND_WINDOW:
+            cv2.imshow("Backend Server - El Presentasi", frame_annotated)
+            wait_ms = max(1, int(delay * 1000)) if delay > 0 else 1
+            key = cv2.waitKey(wait_ms) & 0xFF
+            if key == ord("q"):
+                break
+        else:
+            if delay > 0:
+                time.sleep(delay)
     cap.release()
-    cv2.destroyAllWindows()
+    if SHOW_BACKEND_WINDOW:
+        cv2.destroyAllWindows()
 
 
 @app.route("/set_software", methods=["POST"])
@@ -256,9 +279,13 @@ def force_unlock():
 
 def generate_frames():
     global global_frame
+    last_sent_frame = None
     while True:
         if global_frame is not None:
-            yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + global_frame + b"\r\n")
+            if global_frame != last_sent_frame:
+                yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + global_frame + b"\r\n")
+                last_sent_frame = global_frame
+            time.sleep(0.033)  # limit stream to max ~30 FPS
         else:
             time.sleep(0.1)
 
@@ -270,7 +297,7 @@ def video_feed():
 
 if __name__ == "__main__":
     flask_thread = threading.Thread(
-        target=lambda: app.run(host="0.0.0.0", port=5000, debug=False, use_reloader=False),
+        target=lambda: app.run(host="0.0.0.0", port=5005, debug=False, use_reloader=False),
         daemon=True,
     )
     flask_thread.start()

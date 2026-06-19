@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterable
-from typing import Any
+from typing import Any, Union
 
 
-CommandHandler = Callable[[str], dict[str, Any] | None]
+CommandHandler = Callable[[str], Union[dict[str, Any], None]]
 
 
 class CommandRouter:

@@ -352,6 +352,15 @@ class GestureEngine:
 
     def process_frame(self, frame, roi=None):
         h, w = frame.shape[:2]
+
+        # Optimization: skip MediaPipe hands processing on alternate frames when laser pointer is off
+        if not self.laser_active:
+            if not hasattr(self, 'mp_frame_count'):
+                self.mp_frame_count = 0
+            self.mp_frame_count += 1
+            if self.mp_frame_count % 2 != 0:
+                return frame
+
         results = self.hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         all_hands = []
         valid_hands = []

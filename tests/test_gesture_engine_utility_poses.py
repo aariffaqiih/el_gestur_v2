@@ -84,26 +84,28 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.engine._calc_dist = GestureEngine._calc_dist
         self.engine._is_fist = GestureEngine._is_fist.__get__(self.engine, GestureEngine)
         self.engine._is_hand_open = GestureEngine._is_hand_open.__get__(self.engine, GestureEngine)
-        self.engine._is_l_pose = GestureEngine._is_l_pose.__get__(self.engine, GestureEngine)
-        self.engine._is_open_powerpoint_pose = GestureEngine._is_open_powerpoint_pose.__get__(self.engine, GestureEngine)
-        self.engine._detect_open_powerpoint = GestureEngine._detect_open_powerpoint.__get__(self.engine, GestureEngine)
+        self.engine._is_circle_pose = GestureEngine._is_circle_pose.__get__(self.engine, GestureEngine)
+        self.engine._process_circle_state = GestureEngine._process_circle_state.__get__(self.engine, GestureEngine)
         self.engine._detect_swipe = GestureEngine._detect_swipe.__get__(self.engine, GestureEngine)
+        self.engine._trigger_action = GestureEngine._trigger_action.__get__(self.engine, GestureEngine)
+        self.engine._in_cooldown = GestureEngine._in_cooldown.__get__(self.engine, GestureEngine)
         self.engine.position_buffer = {"Left": deque(maxlen=20), "Right": deque(maxlen=20)}
+        self.engine.last_action_time = 0
+        self.engine.current_cooldown = 0
 
     def test_two_hand_circle_opens_powerpoint_pose_only(self):
         all_hands = [("Left", circle_left_pose()), ("Right", circle_right_pose())]
 
-        self.assertTrue(self.engine._is_open_powerpoint_pose(all_hands, 1_000, 800))
+        self.assertTrue(self.engine._is_circle_pose(all_hands, 1_000, 800))
 
     def test_held_two_hand_circle_triggers_powerpoint(self):
-        self.engine.powerpoint_intent_start = time.time() - INTENT_POWERPOINT_SEC - 0.1
-        self.engine.powerpoint_triggered = False
-        self.engine.last_powerpoint_time = 0
+        self.engine.circle_intent_start = time.time() - INTENT_POWERPOINT_SEC - 0.1
+        self.engine.circle_triggered = False
         self.engine.last_action_name = ""
         actions = []
         self.engine.callback = actions.append
 
-        self.engine._detect_open_powerpoint(
+        self.engine._process_circle_state(
             [("Left", circle_left_pose()), ("Right", circle_right_pose())],
             1_000,
             800,
@@ -111,7 +113,7 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
 
         self.assertEqual(["open_powerpoint"], actions)
         self.assertEqual("open_powerpoint", self.engine.last_action_name)
-        self.assertTrue(self.engine.powerpoint_triggered)
+        self.assertTrue(self.engine.circle_triggered)
 
 
 if __name__ == "__main__":

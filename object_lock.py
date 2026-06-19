@@ -19,6 +19,10 @@ class ObjectLocker:
         self.is_active = False
         self.wants_to_lock = False
 
+        # Performance optimization attributes
+        self.frame_count = 0
+        self.last_tracks = []
+
         print("✅ ObjectLocker siap dalam mode STANDBY!")
 
     def set_locked_id(self, track_id):
@@ -46,18 +50,26 @@ class ObjectLocker:
         center_x_min = int(w * 0.35)
         center_x_max = int(w * 0.65)
 
-        results = self.model(frame, classes=[0], conf=YOLO_CONFIDENCE, verbose=False)
+        self.frame_count += 1
 
-        detections = []
-        for r in results:
-            boxes = r.boxes
-            for box in boxes:
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                conf = box.conf[0].item()
-                box_w, box_h = x2 - x1, y2 - y1
-                detections.append(([int(x1), int(y1), int(box_w), int(box_h)], conf, 'person'))
+        # Run YOLO deteksi setiap 3 frame jika presenter sudah terkunci untuk menghemat CPU.
+        # Jika belum terkunci, jalankan setiap frame agar responsif mencari target.
+        if not self.locked_id or (self.frame_count % 3 == 0):
+            results = self.model(frame, classes=[0], conf=YOLO_CONFIDENCE, verbose=False, imgsz=320)
 
-        tracks = self.tracker.update_tracks(detections, frame=frame)
+            detections = []
+            for r in results:
+                boxes = r.boxes
+                for box in boxes:
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    conf = box.conf[0].item()
+                    box_w, box_h = x2 - x1, y2 - y1
+                    detections.append(([int(x1), int(y1), int(box_w), int(box_h)], conf, 'person'))
+
+            tracks = self.tracker.update_tracks(detections, frame=frame)
+            self.last_tracks = tracks
+        else:
+            tracks = self.last_tracks
 
         presenter_roi = None
         locked_person_found = False
