@@ -259,7 +259,8 @@ class GestureEngine:
         box_h = LASER_BOX_Y_MAX - LASER_BOX_Y_MIN
         norm_x = max(0.0, min(1.0, (raw_x - LASER_BOX_X_MIN) / box_w))
         norm_y = max(0.0, min(1.0, (raw_y - LASER_BOX_Y_MIN) / box_h))
-        screen_x, screen_y = norm_x * self.screen_w, norm_y * self.screen_h
+        screen_w, screen_h = pyautogui.size()
+        screen_x, screen_y = norm_x * screen_w, norm_y * screen_h
         now = time.time()
         if self.filter_x is None:
             self.filter_x = OneEuroFilter(now, screen_x, LASER_MIN_CUTOFF, LASER_BETA, LASER_D_CUTOFF)

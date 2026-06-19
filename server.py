@@ -156,6 +156,7 @@ command_router = CommandRouter([
 voice_typer = VoiceTyper(command_handler=command_router.handle_text)
 app.register_blueprint(create_document_blueprint(document_commands))
 pyautogui.FAILSAFE = True
+pyautogui.PAUSE = 0.005
 
 
 def camera_loop():
