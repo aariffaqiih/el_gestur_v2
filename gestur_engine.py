@@ -93,11 +93,13 @@ class GestureEngine:
 
     def _is_hand_open(self, landmarks, frame_w, frame_h):
         wrist, tips, pips = landmarks[0], [8, 12, 16, 20], [6, 10, 14, 18]
-        open_count = sum(1 for t, p in zip(tips, pips) if self._calc_dist(wrist, landmarks[t], frame_w, frame_h) > self._calc_dist(wrist, landmarks[p], frame_w, frame_h))
-        return open_count >= 3
+        open_count = sum(1 for t, p in zip(tips, pips) if self._calc_dist(wrist, landmarks[t], frame_w, frame_h) > self._calc_dist(wrist, landmarks[p], frame_w, frame_h) * 0.95)
+        return open_count >= 2
 
     def _is_fist(self, landmarks):
-        return all(landmarks[tip].y > landmarks[mcp].y for tip, mcp in zip([8, 12, 16, 20], [5, 9, 13, 17]))
+        d = self._calc_dist
+        wrist = landmarks[0]
+        return all(d(wrist, landmarks[tip], 1, 1) < d(wrist, landmarks[pip], 1, 1) * 1.05 for tip, pip in zip([8, 12, 16, 20], [6, 10, 14, 18]))
 
     def _is_index_pointing(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
@@ -108,42 +110,41 @@ class GestureEngine:
 
     def _is_shaka_pose(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
-        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 1.05
-        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h) * 1.05
-        index_curled = d(wrist, landmarks[8], w, h) < d(wrist, landmarks[6], w, h)
-        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h)
-        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
+        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 0.98
+        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h) * 0.98
+        index_curled = d(wrist, landmarks[8], w, h) < d(wrist, landmarks[6], w, h) * 1.05
+        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) * 1.05
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) * 1.05
         return thumb_open and pinky_open and index_curled and middle_curled and ring_curled
 
     def _is_ok_pose(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
         thumb_tip = landmarks[4]
         ref_dist = max(d(wrist, landmarks[9], w, h), 1.0)
-        index_close = d(thumb_tip, landmarks[8], w, h) < ref_dist * 0.40
-        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h) * 1.05
-        ring_open = d(wrist, landmarks[16], w, h) > d(wrist, landmarks[14], w, h) * 1.05
-        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h) * 1.05
-        thumb_not_collapsed_to_wrist = d(wrist, thumb_tip, w, h) > ref_dist * 0.45
+        index_close = d(thumb_tip, landmarks[8], w, h) < ref_dist * 0.45
+        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h) * 0.98
+        ring_open = d(wrist, landmarks[16], w, h) > d(wrist, landmarks[14], w, h) * 0.98
+        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h) * 0.98
+        thumb_not_collapsed_to_wrist = d(wrist, thumb_tip, w, h) > ref_dist * 0.40
         return index_close and middle_open and ring_open and pinky_open and thumb_not_collapsed_to_wrist
 
     def _is_ily_pose(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
-        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h)
-        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h)
-        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h)
-        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h)
-        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
+        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 0.95
+        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h) * 0.95
+        pinky_open = d(wrist, landmarks[20], w, h) > d(wrist, landmarks[18], w, h) * 0.95
+        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) * 1.05
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) * 1.05
         return thumb_open and index_open and pinky_open and middle_curled and ring_curled
 
     def _is_peace_pose(self, landmarks, w, h):
         d = self._calc_dist
         wrist = landmarks[0]
-        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h)
-        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h)
-        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h)
-        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h)
-        thumb_curled = d(wrist, landmarks[4], w, h) < d(wrist, landmarks[2], w, h) * 1.5
-        return index_open and middle_open and ring_curled and pinky_curled and thumb_curled
+        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h) * 0.95
+        middle_open = d(wrist, landmarks[12], w, h) > d(wrist, landmarks[10], w, h) * 0.95
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) * 1.05
+        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h) * 1.05
+        return index_open and middle_open and ring_curled and pinky_curled
 
     @staticmethod
     def _get_two_hands(all_hands):
@@ -344,7 +345,7 @@ class GestureEngine:
         if not velocities_x: return
         peak_velocity = max(velocities_x, key=abs)
         delta_total = buf[-1][0] - buf[-4][0]
-        if abs(peak_velocity) < (frame_w * 0.4) or abs(delta_total) < (frame_w * 0.15): return
+        if abs(peak_velocity) < (frame_w * 0.3) or abs(delta_total) < (frame_w * 0.12): return
         arah = "kanan" if delta_total > 0 else "kiri"
         if arah != ("kanan" if peak_velocity > 0 else "kiri"): return
         self._trigger_action("next" if arah == "kanan" else "prev", COOLDOWN_SWIPE_MS)
