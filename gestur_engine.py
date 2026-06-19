@@ -344,11 +344,19 @@ class GestureEngine:
                         for i in range(1, len(recent)) if recent[i][2] > recent[i-1][2]]
         if not velocities_x: return
         peak_velocity = max(velocities_x, key=abs)
-        delta_total = buf[-1][0] - buf[-4][0]
-        if abs(peak_velocity) < (frame_w * 0.3) or abs(delta_total) < (frame_w * 0.12): return
-        arah = "kanan" if delta_total > 0 else "kiri"
+        delta_x_total = buf[-1][0] - buf[-4][0]
+        delta_y_total = abs(buf[-1][1] - buf[-4][1])
+
+        # Enforce horizontal swipe: ignore if vertical movement is significant
+        if delta_y_total > abs(delta_x_total) * 0.7:
+            return
+
+        if abs(peak_velocity) < (frame_w * 0.3) or abs(delta_x_total) < (frame_w * 0.12): return
+        arah = "kanan" if delta_x_total > 0 else "kiri"
         if arah != ("kanan" if peak_velocity > 0 else "kiri"): return
-        self._trigger_action("next" if arah == "kanan" else "prev", COOLDOWN_SWIPE_MS)
+
+        # Natural swipe mapping: wave left (kiri) for next slide, wave right (kanan) for prev slide
+        self._trigger_action("next" if arah == "kiri" else "prev", COOLDOWN_SWIPE_MS)
         buf.clear()
 
     def process_frame(self, frame, roi=None):
