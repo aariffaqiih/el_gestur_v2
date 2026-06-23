@@ -190,20 +190,35 @@ class GestureEngine:
     def _is_cross_pose(self, all_hands, w, h):
         if len(all_hands) < 2:
             return False
-        left_lm = None
-        right_lm = None
-        for label, lm in all_hands:
-            if label == "Left":
-                left_lm = lm
-            elif label == "Right":
-                right_lm = lm
-        if not left_lm or not right_lm:
+        handA_lm = all_hands[0][1]
+        handB_lm = all_hands[1][1]
+        
+        # Calculate pointing direction vector (from wrist 0 to knuckle 9)
+        dirA_x = handA_lm[9].x - handA_lm[0].x
+        dirB_x = handB_lm[9].x - handB_lm[0].x
+        
+        # Check if they point in opposite horizontal directions
+        if dirA_x * dirB_x >= 0:
             return False
-        d = self._calc_dist
-        ref_dist = max(d(left_lm[0], left_lm[9], w, h), 1.0)
-        is_crossed = left_lm[0].x < right_lm[0].x and left_lm[9].x < right_lm[9].x
-        y_dist = abs(left_lm[0].y - right_lm[0].y) * h
-        return is_crossed and y_dist < ref_dist * 3.0
+            
+        if dirA_x < 0:
+            left_pointing = handA_lm
+            right_pointing = handB_lm
+        else:
+            left_pointing = handB_lm
+            right_pointing = handA_lm
+            
+        # The hand pointing left (arm starting from the right side of screen)
+        # normally has wrist.x > right_pointing wrist.x.
+        # If crossed, left_pointing wrist.x < right_pointing wrist.x.
+        is_crossed = left_pointing[0].x < right_pointing[0].x
+        
+        # Wrists must be relatively close horizontally and vertically
+        x_dist = abs(left_pointing[0].x - right_pointing[0].x) * w
+        y_dist = abs(left_pointing[0].y - right_pointing[0].y) * h
+        ref_dist = max(self._calc_dist(left_pointing[0], left_pointing[9], w, h), 1.0)
+        
+        return is_crossed and x_dist < ref_dist * 3.0 and y_dist < ref_dist * 2.5
 
     def _process_quit_state(self, all_hands, w, h):
         prayer = self._is_prayer_quit_pose(all_hands, w, h)
