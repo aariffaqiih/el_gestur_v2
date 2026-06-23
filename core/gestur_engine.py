@@ -72,6 +72,8 @@ class GestureEngine:
         self.circle_triggered = False
         self.new_slide_intent_start = None
         self.new_slide_triggered = False
+        self.cross_intent_start = None
+        self.cross_triggered = False
         self.filter_x, self.filter_y = None, None
         self.last_cursor_x, self.last_cursor_y = None, None
         self.screen_w, self.screen_h = pyautogui.size()
@@ -185,6 +187,25 @@ class GestureEngine:
                 close_count += 1
         return close_count >= 3
 
+    def _is_cross_pose(self, all_hands, w, h):
+        if len(all_hands) < 2:
+            return False
+        left_lm = None
+        right_lm = None
+        for label, lm in all_hands:
+            if label == "Left":
+                left_lm = lm
+            elif label == "Right":
+                right_lm = lm
+        if not left_lm or not right_lm:
+            return False
+        d = self._calc_dist
+        ref_dist = max(d(left_lm[0], left_lm[9], w, h), 1.0)
+        is_crossed = left_lm[0].x > right_lm[0].x and left_lm[9].x > right_lm[9].x
+        y_dist = abs(left_lm[0].y - right_lm[0].y) * h
+        x_dist = abs(left_lm[0].x - right_lm[0].x) * w
+        return is_crossed and y_dist < ref_dist * 2.5 and x_dist < ref_dist * 4.0
+
     def _process_quit_state(self, all_hands, w, h):
         prayer = self._is_prayer_quit_pose(all_hands, w, h)
         if prayer:
@@ -215,6 +236,20 @@ class GestureEngine:
         else:
             self.circle_intent_start = None
             self.circle_triggered = False
+
+    def _process_cross_state(self, all_hands, w, h):
+        if self._is_cross_pose(all_hands, w, h):
+            if self.cross_intent_start is None:
+                self.cross_intent_start = time.time()
+                self.cross_triggered = False
+            elif (not self.cross_triggered and 
+                  time.time() - self.cross_intent_start >= INTENT_CROSS_SEC):
+                if not self._in_cooldown():
+                    self.cross_triggered = True
+                    self._trigger_action("delete_slide", COOLDOWN_DELETE_MS)
+        else:
+            self.cross_intent_start = None
+            self.cross_triggered = False
 
     def _detect_start_presentation(self, hand_label, landmarks, frame_w, frame_h):
         state = self.start_state[hand_label]
@@ -418,6 +453,7 @@ class GestureEngine:
         self._process_quit_state(all_hands, w, h)
         self._process_ily_state(ily_detected, w, h)
         self._process_circle_state(all_hands, w, h)
+        self._process_cross_state(all_hands, w, h)
         self._process_new_slide_state(ok_detected)
         return frame
 

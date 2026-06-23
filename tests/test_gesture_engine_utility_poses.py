@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 from core.config import (
     INTENT_POWERPOINT_SEC,
+    INTENT_CROSS_SEC,
 )
 
 
@@ -78,6 +79,34 @@ def circle_right_pose():
     return hand
 
 
+def crossed_left_pose():
+    hand = curled_fingers_pose()
+    hand[0] = lm(0.6, 0.5)
+    hand[9] = lm(0.6, 0.4)
+    return hand
+
+
+def crossed_right_pose():
+    hand = curled_fingers_pose()
+    hand[0] = lm(0.4, 0.5)
+    hand[9] = lm(0.4, 0.4)
+    return hand
+
+
+def normal_left_pose():
+    hand = curled_fingers_pose()
+    hand[0] = lm(0.4, 0.5)
+    hand[9] = lm(0.4, 0.4)
+    return hand
+
+
+def normal_right_pose():
+    hand = curled_fingers_pose()
+    hand[0] = lm(0.6, 0.5)
+    hand[9] = lm(0.6, 0.4)
+    return hand
+
+
 class GestureEngineUtilityPoseTests(unittest.TestCase):
     def setUp(self):
         self.engine = GestureEngine.__new__(GestureEngine)
@@ -86,12 +115,16 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.engine._is_hand_open = GestureEngine._is_hand_open.__get__(self.engine, GestureEngine)
         self.engine._is_circle_pose = GestureEngine._is_circle_pose.__get__(self.engine, GestureEngine)
         self.engine._process_circle_state = GestureEngine._process_circle_state.__get__(self.engine, GestureEngine)
+        self.engine._is_cross_pose = GestureEngine._is_cross_pose.__get__(self.engine, GestureEngine)
+        self.engine._process_cross_state = GestureEngine._process_cross_state.__get__(self.engine, GestureEngine)
         self.engine._detect_swipe = GestureEngine._detect_swipe.__get__(self.engine, GestureEngine)
         self.engine._trigger_action = GestureEngine._trigger_action.__get__(self.engine, GestureEngine)
         self.engine._in_cooldown = GestureEngine._in_cooldown.__get__(self.engine, GestureEngine)
         self.engine.position_buffer = {"Left": deque(maxlen=20), "Right": deque(maxlen=20)}
         self.engine.last_action_time = 0
         self.engine.current_cooldown = 0
+        self.engine.cross_intent_start = None
+        self.engine.cross_triggered = False
 
     def test_two_hand_circle_opens_powerpoint_pose_only(self):
         all_hands = [("Left", circle_left_pose()), ("Right", circle_right_pose())]
@@ -114,6 +147,31 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.assertEqual(["open_powerpoint"], actions)
         self.assertEqual("open_powerpoint", self.engine.last_action_name)
         self.assertTrue(self.engine.circle_triggered)
+
+    def test_two_hand_cross_pose_only(self):
+        crossed_hands = [("Left", crossed_left_pose()), ("Right", crossed_right_pose())]
+        self.assertTrue(self.engine._is_cross_pose(crossed_hands, 1_000, 800))
+        
+        normal_hands = [("Left", normal_left_pose()), ("Right", normal_right_pose())]
+        self.assertFalse(self.engine._is_cross_pose(normal_hands, 1_000, 800))
+
+    def test_held_two_hand_cross_triggers_delete_slide(self):
+        self.engine.cross_intent_start = time.time() - INTENT_CROSS_SEC - 0.1
+        self.engine.cross_triggered = False
+        self.engine.last_action_name = ""
+        actions = []
+        self.engine.callback = actions.append
+
+        self.engine._process_cross_state(
+            [("Left", crossed_left_pose()), ("Right", crossed_right_pose())],
+            1_000,
+            800,
+        )
+
+        self.assertEqual(["delete_slide"], actions)
+        self.assertEqual("delete_slide", self.engine.last_action_name)
+        self.assertTrue(self.engine.cross_triggered)
+
 
 
 if __name__ == "__main__":

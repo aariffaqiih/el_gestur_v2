@@ -108,6 +108,8 @@ def handle_gesture(action):
             if not voice_typer.is_running():
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
+        elif action == "delete_slide":
+            pyautogui.press("delete")
 
     elif current_software == "canva":
         if action == "next":
@@ -130,6 +132,8 @@ def handle_gesture(action):
             if not voice_typer.is_running():
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
+        elif action == "delete_slide":
+            pyautogui.press("delete")
 
     elif current_software == "figma":
         if action == "next":
@@ -157,6 +161,12 @@ def handle_gesture(action):
             if not voice_typer.is_running():
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
+        elif action == "delete_slide":
+            pyautogui.press("esc")
+            time.sleep(0.05)
+            pyautogui.press("esc")
+            time.sleep(0.05)
+            pyautogui.press("delete")
 
     elif current_software == "notion":
         if action == "next":
@@ -180,6 +190,8 @@ def handle_gesture(action):
             if not voice_typer.is_running():
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
+        elif action == "delete_slide":
+            pyautogui.press("delete")
 
 
 def handle_cursor_move(x, y):
