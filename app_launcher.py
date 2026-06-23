@@ -91,3 +91,72 @@ def open_powerpoint_application():
     except Exception as start_error:
         return False, "Failed to open PowerPoint"
 
+
+def open_canva_application():
+    if sys.platform == "darwin":
+        try:
+            # Try to open native Mac app
+            subprocess.Popen(["open", "-a", "Canva"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True, "Success opening Canva App on macOS"
+        except Exception:
+            pass
+    elif sys.platform == "win32":
+        try:
+            # Try to open using protocol handler
+            subprocess.Popen(["cmd", "/c", "start", "", "canva://"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=False)
+            return True, "Success opening Canva via protocol on Windows"
+        except Exception:
+            pass
+            
+    # Fallback to opening default web browser
+    try:
+        import webbrowser
+        webbrowser.open("https://www.canva.com")
+        return True, "Success opening Canva in web browser"
+    except Exception as e:
+        return False, f"Failed to open Canva: {e}"
+
+
+def open_figma_application():
+    if sys.platform == "darwin":
+        try:
+            subprocess.Popen(["open", "-a", "Figma"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True, "Success opening Figma App on macOS"
+        except Exception:
+            pass
+    elif sys.platform == "win32":
+        try:
+            subprocess.Popen(["cmd", "/c", "start", "", "figma://"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=False)
+            return True, "Success opening Figma via protocol on Windows"
+        except Exception:
+            pass
+            
+    try:
+        import webbrowser
+        webbrowser.open("https://www.figma.com")
+        return True, "Success opening Figma in web browser"
+    except Exception as e:
+        return False, f"Failed to open Figma: {e}"
+
+
+def open_notion_application():
+    if sys.platform == "darwin":
+        try:
+            subprocess.Popen(["open", "-a", "Notion"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True, "Success opening Notion App on macOS"
+        except Exception:
+            pass
+    elif sys.platform == "win32":
+        try:
+            subprocess.Popen(["cmd", "/c", "start", "", "notion://"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, shell=False)
+            return True, "Success opening Notion via protocol on Windows"
+        except Exception:
+            pass
+            
+    try:
+        import webbrowser
+        webbrowser.open("https://www.notion.so")
+        return True, "Success opening Notion in web browser"
+    except Exception as e:
+        return False, f"Failed to open Notion: {e}"
+

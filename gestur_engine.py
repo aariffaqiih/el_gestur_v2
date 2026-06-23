@@ -102,11 +102,13 @@ class GestureEngine:
         return all(d(wrist, landmarks[tip], 1, 1) < d(wrist, landmarks[pip], 1, 1) * 1.05 for tip, pip in zip([8, 12, 16, 20], [6, 10, 14, 18]))
 
     def _is_index_pointing(self, landmarks, w, h):
-        d, wrist = self._calc_dist, landmarks[0]
-        return (d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h) and
-                d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) and
-                d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) and
-                d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h))
+        # Use 3D Euclidean distance to prevent 2D perspective foreshortening errors when pointing at the camera
+        d = lambda p1, p2: math.hypot(math.hypot(p1.x - p2.x, p1.y - p2.y), p1.z - p2.z)
+        wrist = landmarks[0]
+        return (d(wrist, landmarks[8]) > d(wrist, landmarks[6]) * 0.90 and
+                d(wrist, landmarks[12]) < d(wrist, landmarks[10]) * 1.10 and
+                d(wrist, landmarks[16]) < d(wrist, landmarks[14]) * 1.10 and
+                d(wrist, landmarks[20]) < d(wrist, landmarks[18]) * 1.10)
 
     def _is_shaka_pose(self, landmarks, w, h):
         d, wrist = self._calc_dist, landmarks[0]
@@ -251,10 +253,11 @@ class GestureEngine:
         else:
             self.laser_pose_intent_start[hand_label] = None
             self.laser_pose_toggled[hand_label] = False
-
     def _track_index_finger(self, landmarks, area_w, area_h):
         if not self.cursor_callback: return
-        raw_x, raw_y = landmarks[8].x, landmarks[8].y
+        # Blend fingertip (65%) and knuckle (35%) to filter out high-frequency joint tremors at the source
+        raw_x = landmarks[8].x * 0.65 + landmarks[5].x * 0.35
+        raw_y = landmarks[8].y * 0.65 + landmarks[5].y * 0.35
         box_w = LASER_BOX_X_MAX - LASER_BOX_X_MIN
         box_h = LASER_BOX_Y_MAX - LASER_BOX_Y_MIN
         norm_x = max(0.0, min(1.0, (raw_x - LASER_BOX_X_MIN) / box_w))

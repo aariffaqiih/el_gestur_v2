@@ -3,6 +3,7 @@ import pyautogui
 import threading
 import time
 import sys
+import re
 
 try:
     sys.stdout.reconfigure(encoding='utf-8', errors='replace')
@@ -18,9 +19,10 @@ def _safe_print(*args, **kwargs):
 
 class VoiceTyper:
 
-    def __init__(self, command_handler=None):
+    def __init__(self, command_handler=None, device_index=None):
         self.recognizer = sr.Recognizer()
-        self.microphone = sr.Microphone()
+        self.device_index = device_index
+        self.microphone = sr.Microphone(device_index=self.device_index)
         self._command_handler = command_handler
         self._thread = None
         self._stop_event = threading.Event()
@@ -34,6 +36,8 @@ class VoiceTyper:
         self.last_text = ""
         self.status = "idle"
         self.error_msg = ""
+        self.capitalize_next = True
+        self.is_muted = False
 
         # Platform-specific hotkey shortcuts
         is_mac = sys.platform == "darwin"
@@ -174,7 +178,58 @@ class VoiceTyper:
             pyautogui.write(safe_text, interval=0.02)
             _safe_print(f"✍️  Diketik (fallback): \"{safe_text.strip()}\"")
 
+    def _clean_and_format_text(self, text):
+        # 1. Smart Punctuation Replacement for Indonesian
+        replacements = {
+            " titik dua": ":",
+            " titik koma": ";",
+            " tanda tanya": "?",
+            " tanda seru": "!",
+            " buka kurung": " (",
+            " tutup kurung": ") ",
+            " titik": ".",
+            " koma": ",",
+            " baris baru": "\n",
+            " paragraf baru": "\n\n"
+        }
+        
+        # Replace punctuation words case-insensitively
+        for word, punc in replacements.items():
+            pattern = re.compile(re.escape(word), re.IGNORECASE)
+            text = pattern.sub(punc, text)
+            
+        # Clean up double/multiple spaces around punctuation
+        text = re.sub(r'\s+([.,;:?!])', r'\1', text)
+        
+        # 2. Auto-capitalization
+        if getattr(self, 'capitalize_next', True) and len(text) > 0:
+            text = text[0].upper() + text[1:]
+            self.capitalize_next = False
+            
+        # Capitalize letters following sentence endings (. ? !) inside the text
+        def capitalize_sentences(match):
+            return match.group(1) + match.group(2).upper()
+            
+        text = re.sub(r'([.!?]\s+)([a-z])', capitalize_sentences, text)
+        
+        # Capitalize letters following a newline character
+        def capitalize_newlines(match):
+            return match.group(1) + match.group(2).upper()
+            
+        text = re.sub(r'(\n\s*)([a-z])', capitalize_newlines, text)
+        
+        # Check if the overall phrase ends with sentence-ending punctuation or a newline
+        trimmed = text.strip()
+        if trimmed.endswith((".", "?", "!")) or "\n" in text:
+            self.capitalize_next = True
+            
+        return text
+
     def process_text(self, text):
+        if getattr(self, "is_muted", False):
+            _safe_print("🔇 VoiceTyper dibisukan. Teks diabaikan.")
+            return {"status": "muted", "message": "Voice Typer dibisukan"}
+
         stripped_text = str(text).strip()
         if not stripped_text:
             return {"status": "empty"}
@@ -189,17 +244,54 @@ class VoiceTyper:
             self.last_text = f"[Command] {stripped_text.lower()}"
             return {"status": "command", "command": stripped_text.lower()}
 
-        self._type_text(stripped_text)
-        return {"status": "success", "typed": stripped_text}
+        formatted_text = self._clean_and_format_text(stripped_text)
+        self._type_text(formatted_text)
+        return {"status": "success", "typed": formatted_text}
+
+    def mute(self):
+        self.is_muted = True
+        _safe_print("🔇 VoiceTyper: Dibisukan (Muted)")
+
+    def unmute(self):
+        self.is_muted = False
+        _safe_print("🔊 VoiceTyper: Suara aktif (Unmuted)")
+
+    def toggle_mute(self):
+        self.is_muted = not getattr(self, "is_muted", False)
+        _safe_print(f"🎙️ VoiceTyper: Mute status diubah ke {self.is_muted}")
+        return self.is_muted
 
     def set_command_handler(self, command_handler):
         self._command_handler = command_handler
+
+    def set_device_index(self, index):
+        if index is None or index == "" or str(index).lower() == "default":
+            self.device_index = None
+        else:
+            try:
+                self.device_index = int(index)
+            except ValueError:
+                self.device_index = None
+        
+        self.microphone = sr.Microphone(device_index=self.device_index)
+        _safe_print(f"🎙️ VoiceTyper: device_index diatur ke {self.device_index}")
+        
+        # If running, restart to apply new device immediately
+        if self._is_running:
+            _safe_print("🎙️ VoiceTyper: Merestart listener untuk menggunakan perangkat baru...")
+            self.stop()
+            # Wait for thread to terminate
+            if self._thread:
+                self._thread.join(timeout=1.0)
+            self.start()
 
     def start(self):
         if self._is_running:
             _safe_print("⚠️  VoiceTyper sudah berjalan!")
             return False
 
+        # Always recreate microphone instance to pick up latest device_index
+        self.microphone = sr.Microphone(device_index=self.device_index)
         self._stop_event.clear()
         self._is_running = True
         self._thread = threading.Thread(target=self._listen_loop, daemon=True)
@@ -225,7 +317,9 @@ class VoiceTyper:
             "is_running": self._is_running,
             "status": self.status,
             "last_text": self.last_text,
-            "error": self.error_msg
+            "error": self.error_msg,
+            "device_index": self.device_index,
+            "is_muted": getattr(self, "is_muted", False)
         }
 
 

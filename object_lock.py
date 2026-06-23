@@ -2,15 +2,25 @@ import cv2
 from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import time
-from config import CAMERA_FPS, YOLO_CONFIDENCE, LOCK_LOST_SEC, CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT
+import numpy as np
+from config import CAMERA_FPS, YOLO_CONFIDENCE, LOCK_LOST_SEC, CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, YOLO_FRAME_SKIP
 
 class ObjectLocker:
     def __init__(self):
         print("⏳ Loading YOLOv8 model...")
         self.model = YOLO('yolov8n.pt')
+        
+        # Auto-detect best device (CUDA for Windows with NVIDIA, MPS for macOS, CPU fallback)
+        import torch
+        self.device = 'cpu'
+        if torch.cuda.is_available():
+            self.device = 'cuda'
+        elif torch.backends.mps.is_available():
+            self.device = 'mps'
+        print(f"✅ YOLOv8 device set to: {self.device}")
 
         print("⏳ Setup DeepSORT...")
-        self.tracker = DeepSort(max_age=int(CAMERA_FPS * 5))
+        self.tracker = DeepSort(max_age=int(CAMERA_FPS * 5), embedder=None)
 
         self.locked_id = None
         self.lock_lost_time = 0
@@ -50,18 +60,24 @@ class ObjectLocker:
         center_x_min = int(w * 0.35)
         center_x_max = int(w * 0.65)
 
-        results = self.model(frame, classes=[0], conf=YOLO_CONFIDENCE, verbose=False, imgsz=320)
+        self.frame_count += 1
 
-        detections = []
-        for r in results:
-            boxes = r.boxes
-            for box in boxes:
-                x1, y1, x2, y2 = box.xyxy[0].tolist()
-                conf = box.conf[0].item()
-                box_w, box_h = x2 - x1, y2 - y1
-                detections.append(([int(x1), int(y1), int(box_w), int(box_h)], conf, 'person'))
+        if self.frame_count % YOLO_FRAME_SKIP == 0 or self.wants_to_lock or not self.last_tracks:
+            results = self.model(frame, classes=[0], conf=YOLO_CONFIDENCE, verbose=False, imgsz=320, device=self.device)
+            detections = []
+            for r in results:
+                boxes = r.boxes
+                for box in boxes:
+                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    conf = box.conf[0].item()
+                    box_w, box_h = x2 - x1, y2 - y1
+                    detections.append(([int(x1), int(y1), int(box_w), int(box_h)], conf, 'person'))
 
-        tracks = self.tracker.update_tracks(detections, frame=frame)
+            embeds = [np.ones(128, dtype=np.float32) for _ in range(len(detections))]
+            tracks = self.tracker.update_tracks(detections, embeds=embeds)
+            self.last_tracks = tracks
+        else:
+            tracks = self.last_tracks
 
         presenter_roi = None
         locked_person_found = False
