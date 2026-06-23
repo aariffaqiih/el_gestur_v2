@@ -4,7 +4,7 @@ import re
 import threading
 from typing import Any
 
-from document_finder import DocumentFinder, DocumentFinderError
+from .document_finder import DocumentFinder, DocumentFinderError
 
 
 _SEARCH_PATTERN = re.compile(

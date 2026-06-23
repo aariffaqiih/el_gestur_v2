@@ -4,9 +4,9 @@ from pathlib import Path
 
 from flask import Flask
 
-from document_api import create_document_blueprint
-from document_commands import DocumentCommandService
-from document_finder import DocumentFinder
+from core.document_api import create_document_blueprint
+from core.document_commands import DocumentCommandService
+from core.document_finder import DocumentFinder
 
 
 class DocumentApiTests(unittest.TestCase):

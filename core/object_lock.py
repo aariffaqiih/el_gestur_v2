@@ -3,7 +3,7 @@ from ultralytics import YOLO
 from deep_sort_realtime.deepsort_tracker import DeepSort
 import time
 import numpy as np
-from config import CAMERA_FPS, YOLO_CONFIDENCE, LOCK_LOST_SEC, CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, YOLO_FRAME_SKIP
+from .config import CAMERA_FPS, YOLO_CONFIDENCE, LOCK_LOST_SEC, CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, YOLO_FRAME_SKIP
 
 class ObjectLocker:
     def __init__(self):

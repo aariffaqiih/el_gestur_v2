@@ -8,15 +8,15 @@ import re
 from flask import Flask, jsonify, Response, request
 from flask_cors import CORS
 
-from object_lock import ObjectLocker
-from gestur_engine import GestureEngine
-from voice_typer import VoiceTyper
-from config import *
-from app_launcher import open_powerpoint_application, open_canva_application, open_figma_application, open_notion_application
-from document_api import create_document_blueprint
-from document_commands import DocumentCommandService
-from document_finder import DocumentFinder, resolve_search_roots
-from command_router import CommandRouter
+from core.object_lock import ObjectLocker
+from core.gestur_engine import GestureEngine
+from core.voice_typer import VoiceTyper
+from core.config import *
+from core.app_launcher import open_powerpoint_application, open_canva_application, open_figma_application, open_notion_application
+from core.document_api import create_document_blueprint
+from core.document_commands import DocumentCommandService
+from core.document_finder import DocumentFinder, resolve_search_roots
+from core.command_router import CommandRouter
 
 app = Flask(__name__)
 CORS(app)

@@ -4,7 +4,7 @@ import time
 import math
 import pyautogui
 from collections import deque
-from config import *
+from .config import *
 
 mp_hands = mp.solutions.hands
 mp_draw = mp.solutions.drawing_utils

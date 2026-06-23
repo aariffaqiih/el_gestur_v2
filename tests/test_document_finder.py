@@ -4,8 +4,8 @@ import time
 import unittest
 from pathlib import Path
 
-from document_commands import DocumentCommandService
-from document_finder import (
+from core.document_commands import DocumentCommandService
+from core.document_finder import (
     DocumentFinder,
     DocumentNotFoundError,
     resolve_search_roots,

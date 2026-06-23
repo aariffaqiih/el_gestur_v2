@@ -5,8 +5,8 @@ from urllib.parse import urlparse
 
 from flask import Blueprint, jsonify, request
 
-from document_commands import DocumentCommandService
-from document_finder import DocumentFinderError, DocumentNotFoundError
+from .document_commands import DocumentCommandService
+from .document_finder import DocumentFinderError, DocumentNotFoundError
 
 
 def create_document_blueprint(document_commands: DocumentCommandService) -> Blueprint:

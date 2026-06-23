@@ -1,6 +1,6 @@
 import unittest
 
-from command_router import CommandRouter
+from core.command_router import CommandRouter
 
 
 class CommandRouterTests(unittest.TestCase):

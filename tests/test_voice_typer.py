@@ -1,6 +1,6 @@
 import unittest
 
-from voice_typer import VoiceTyper
+from core.voice_typer import VoiceTyper
 
 
 class VoiceTyperPipelineTests(unittest.TestCase):

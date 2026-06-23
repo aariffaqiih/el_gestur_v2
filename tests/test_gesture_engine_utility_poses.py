@@ -5,7 +5,7 @@ from collections import deque
 from types import ModuleType
 from types import SimpleNamespace
 
-from config import (
+from core.config import (
     INTENT_POWERPOINT_SEC,
 )
 
@@ -34,7 +34,7 @@ def install_gesture_dependency_stubs():
 
 install_gesture_dependency_stubs()
 
-from gestur_engine import GestureEngine
+from core.gestur_engine import GestureEngine
 
 
 def lm(x, y):

@@ -4,9 +4,9 @@ from unittest.mock import patch, MagicMock
 
 # List of modules to mock during server import
 mocked_modules = [
-    'cv2', 'object_lock', 'gestur_engine', 'voice_typer',
-    'app_launcher', 'document_api', 'document_commands',
-    'document_finder', 'command_router', 'pyautogui'
+    'cv2', 'core.object_lock', 'core.gestur_engine', 'core.voice_typer',
+    'core.app_launcher', 'core.document_api', 'core.document_commands',
+    'core.document_finder', 'core.command_router', 'pyautogui'
 ]
 
 # Save original modules
