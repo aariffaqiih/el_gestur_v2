@@ -439,9 +439,12 @@ class GestureEngine:
                     else: self.filter_x = self.filter_y = self.last_cursor_x = self.last_cursor_y = None
                 else:
                     if not self._in_cooldown():
-                        self._detect_swipe(hand_label, lm, w, h)
-                        self._detect_start_presentation(hand_label, lm, w, h)
-                        self._detect_stop_presentation(hand_label, lm)
+                        if len(all_hands) < 2:
+                            self._detect_swipe(hand_label, lm, w, h)
+                            self._detect_start_presentation(hand_label, lm, w, h)
+                            self._detect_stop_presentation(hand_label, lm)
+                        else:
+                            self.position_buffer[hand_label].clear()
                     else:
                         self.position_buffer[hand_label].clear()
                         self.start_state[hand_label]["stage"] = 0
