@@ -81,29 +81,29 @@ def circle_right_pose():
 
 def crossed_left_pose():
     hand = curled_fingers_pose()
-    hand[0] = lm(0.6, 0.5)
-    hand[9] = lm(0.6, 0.4)
+    hand[0] = lm(0.4, 0.5)
+    hand[9] = lm(0.4, 0.4)
     return hand
 
 
 def crossed_right_pose():
     hand = curled_fingers_pose()
-    hand[0] = lm(0.4, 0.5)
-    hand[9] = lm(0.4, 0.4)
+    hand[0] = lm(0.6, 0.5)
+    hand[9] = lm(0.6, 0.4)
     return hand
 
 
 def normal_left_pose():
     hand = curled_fingers_pose()
-    hand[0] = lm(0.4, 0.5)
-    hand[9] = lm(0.4, 0.4)
+    hand[0] = lm(0.6, 0.5)
+    hand[9] = lm(0.6, 0.4)
     return hand
 
 
 def normal_right_pose():
     hand = curled_fingers_pose()
-    hand[0] = lm(0.6, 0.5)
-    hand[9] = lm(0.6, 0.4)
+    hand[0] = lm(0.4, 0.5)
+    hand[9] = lm(0.4, 0.4)
     return hand
 
 

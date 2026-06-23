@@ -201,10 +201,9 @@ class GestureEngine:
             return False
         d = self._calc_dist
         ref_dist = max(d(left_lm[0], left_lm[9], w, h), 1.0)
-        is_crossed = left_lm[0].x > right_lm[0].x and left_lm[9].x > right_lm[9].x
+        is_crossed = left_lm[0].x < right_lm[0].x and left_lm[9].x < right_lm[9].x
         y_dist = abs(left_lm[0].y - right_lm[0].y) * h
-        x_dist = abs(left_lm[0].x - right_lm[0].x) * w
-        return is_crossed and y_dist < ref_dist * 2.5 and x_dist < ref_dist * 4.0
+        return is_crossed and y_dist < ref_dist * 3.0
 
     def _process_quit_state(self, all_hands, w, h):
         prayer = self._is_prayer_quit_pose(all_hands, w, h)
