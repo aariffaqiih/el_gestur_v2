@@ -47,12 +47,13 @@
       }
 
       html {
-        background: #0a1024;
+        background-color: #0a1024;
         scroll-behavior: smooth;
       }
 
       body {
-        background: radial-gradient(
+        background-color: #0a1024;
+        background-image: radial-gradient(
             circle at 75% 18%,
             rgba(255, 209, 102, 0.22) 0 6%,
             transparent 18%
@@ -80,13 +81,14 @@
         flex-direction: column;
         overflow-x: hidden;
         isolation: isolate;
-        perspective: 1400px;
+        /* perspective: 1400px; */
         text-rendering: geometricPrecision;
         -webkit-font-smoothing: antialiased;
       }
 
       body::before,
       body::after {
+        display: none;
         content: "";
         position: fixed;
         inset: 0;
@@ -211,8 +213,8 @@
             rgba(255, 255, 255, 0.045)
           ),
           rgba(13, 18, 46, 0.72);
-        backdrop-filter: blur(20px) saturate(1.4);
-        -webkit-backdrop-filter: blur(20px) saturate(1.4);
+        /* backdrop-filter: blur(20px) saturate(1.4); */
+        /* -webkit-backdrop-filter: blur(20px) saturate(1.4); */
         position: sticky;
         top: 18px;
         z-index: 100;
@@ -220,7 +222,7 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42),
           inset 0 -20px 44px rgba(20, 24, 64, 0.28),
           0 18px 58px rgba(0, 0, 0, 0.36), 0 0 0 7px rgba(255, 255, 255, 0.035);
-        transform-style: preserve-3d;
+        /* transform-style: preserve-3d; */
         transition: transform 900ms var(--ease-elastic),
           box-shadow 900ms var(--ease-heavy),
           border-color 900ms var(--ease-heavy);
@@ -291,8 +293,8 @@
         max-width: 1440px;
         margin: 0 auto;
         width: 100%;
-        perspective: 1600px;
-        transform-style: preserve-3d;
+        /* perspective: 1600px; */
+        /* transform-style: preserve-3d; */
       }
 
       @media (max-width: 1024px) {
@@ -303,7 +305,8 @@
 
       .glass-panel {
         position: relative;
-        background: linear-gradient(
+        background-color: rgba(16, 22, 57, 0.85);
+        background-image: linear-gradient(
             150deg,
             rgba(255, 255, 255, 0.24),
             rgba(255, 255, 255, 0.06) 18%,
@@ -327,21 +330,22 @@
           inset 0 -36px 76px rgba(0, 0, 0, 0.28),
           0 2px 0 rgba(255, 255, 255, 0.18), var(--shadow-ambient),
           var(--shadow-neon);
-        transform-style: preserve-3d;
+        /* transform-style: preserve-3d; */
         transform: translate3d(0, 0, 0) rotateX(0deg) rotateY(0deg) scale(1);
         transform-origin: center;
-        backface-visibility: hidden;
+        /* backface-visibility: hidden; */
         transition: transform var(--motion-hover-slow) var(--ease-hover),
           box-shadow var(--motion-hover-slow) var(--ease-silk),
           border-color var(--motion-hover) var(--ease-silk),
           filter var(--motion-hover) var(--ease-silk);
         overflow: hidden;
-        will-change: transform, box-shadow, filter;
+        /* will-change: transform, box-shadow, filter; */
       }
 
       .glass-panel:nth-child(2) {
         animation-delay: -3s;
-        background: linear-gradient(
+        background-color: rgba(16, 22, 57, 0.85);
+        background-image: linear-gradient(
             145deg,
             rgba(255, 255, 255, 0.2),
             rgba(255, 255, 255, 0.045) 25%,
@@ -428,7 +432,8 @@
       .video-container {
         width: 100%;
         aspect-ratio: 16/9;
-        background: radial-gradient(
+        background-color: #020611;
+        background-image: radial-gradient(
             circle at 55% 45%,
             rgba(255, 209, 102, 0.2),
             transparent 23%
@@ -441,7 +446,7 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        transform-style: preserve-3d;
+        /* transform-style: preserve-3d; */
         box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08),
           inset 0 26px 56px rgba(255, 255, 255, 0.06),
           inset 0 -40px 80px rgba(0, 0, 0, 0.44),
@@ -591,8 +596,8 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.38),
           inset 0 -16px 28px rgba(0, 0, 0, 0.23),
           0 14px 34px rgba(0, 0, 0, 0.24);
-        transform-style: preserve-3d;
-        will-change: transform;
+        /* transform-style: preserve-3d; */
+        /* will-change: transform; */
       }
 
       .btn::before,
@@ -751,7 +756,7 @@
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.32),
           inset 0 -16px 28px rgba(0, 0, 0, 0.21),
           0 18px 48px rgba(0, 0, 0, 0.24);
-        transform-style: preserve-3d;
+        /* transform-style: preserve-3d; */
         transition: transform 740ms var(--ease-elastic),
           border-color 740ms var(--ease-heavy),
           box-shadow 740ms var(--ease-heavy);
@@ -896,7 +901,7 @@
         gap: 0.5rem;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.26),
           0 12px 26px rgba(0, 0, 0, 0.22);
-        transform-style: preserve-3d;
+        /* transform-style: preserve-3d; */
       }
       .software-btn::before {
         content: "";
@@ -1163,7 +1168,7 @@
         grid-template-columns: auto minmax(0, 1fr) auto;
         align-items: center;
         gap: 0.75rem;
-        transform-style: preserve-3d;
+        /* transform-style: preserve-3d; */
         transition: transform 760ms var(--ease-elastic),
           box-shadow 760ms var(--ease-heavy),
           border-color 760ms var(--ease-heavy), filter 760ms var(--ease-heavy);
@@ -1293,8 +1298,8 @@
         border: 1px solid rgba(255, 255, 255, 0.16);
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.24),
           0 18px 48px rgba(0, 0, 0, 0.32);
-        backdrop-filter: blur(14px) saturate(1.35);
-        -webkit-backdrop-filter: blur(14px) saturate(1.35);
+        /* backdrop-filter: blur(14px) saturate(1.35); */
+        /* -webkit-backdrop-filter: blur(14px) saturate(1.35); */
         transition: transform 700ms var(--ease-elastic),
           box-shadow 700ms var(--ease-heavy);
         z-index: 120;
@@ -1338,7 +1343,7 @@
       .api-config,
       .api-config input {
         transform-origin: center;
-        backface-visibility: hidden;
+        /* backface-visibility: hidden; */
         transition-duration: var(--motion-hover);
         transition-timing-function: var(--ease-hover);
         transition-delay: 0ms;
@@ -1373,7 +1378,7 @@
 
       @media (max-width: 760px) {
         body {
-          perspective: none;
+          /* perspective: none; */
         }
 
         header {

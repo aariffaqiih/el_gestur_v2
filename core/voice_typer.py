@@ -69,52 +69,51 @@ class VoiceTyper:
                 _safe_print("🔇 Kalibrasi noise ambient (1 detik)...")
                 self.recognizer.adjust_for_ambient_noise(source, duration=1)
                 _safe_print("✅ Kalibrasi selesai. Mulai mendengarkan.")
+
+                self.status = "listening"
+                while not self._stop_event.is_set():
+                    try:
+                        self.status = "listening"
+                        self.error_msg = ""
+                        audio = self.recognizer.listen(
+                            source,
+                            timeout=5,
+                            phrase_time_limit=15
+                        )
+
+                        self.status = "processing"
+                        text = self.recognizer.recognize_google(audio, language="id-ID")
+                        text = text.strip()
+
+                        if not text:
+                            continue
+
+                        _safe_print(f"🗣️  Terdengar: \"{text}\"")
+                        self.process_text(text)
+
+                    except sr.WaitTimeoutError:
+                        continue
+                    except sr.UnknownValueError:
+                        _safe_print("🔇 Suara tidak dikenali, ulangi...")
+                        continue
+                    except sr.RequestError as e:
+                        self.status = "error"
+                        self.error_msg = f"Error API: {e}"
+                        _safe_print(f"⚠️  {self.error_msg}. Retry dalam 2 detik...")
+                        time.sleep(2)
+                        continue
+                    except Exception as e:
+                        self.status = "error"
+                        self.error_msg = str(e)
+                        _safe_print(f"❌ Error: {e}")
+                        time.sleep(1)
+                        continue
         except Exception as e:
             self.status = "error"
             self.error_msg = f"Gagal akses mikrofon: {e}"
             _safe_print(f"❌ {self.error_msg}")
             self._is_running = False
             return
-
-        while not self._stop_event.is_set():
-            try:
-                self.status = "listening"
-                self.error_msg = ""
-
-                with self.microphone as source:
-                    audio = self.recognizer.listen(
-                        source,
-                        timeout=5,
-                        phrase_time_limit=15
-                    )
-
-                self.status = "processing"
-                text = self.recognizer.recognize_google(audio, language="id-ID")
-                text = text.strip()
-
-                if not text:
-                    continue
-
-                _safe_print(f"🗣️  Terdengar: \"{text}\"")
-                self.process_text(text)
-
-            except sr.WaitTimeoutError:
-                continue
-            except sr.UnknownValueError:
-                _safe_print("🔇 Suara tidak dikenali, ulangi...")
-                continue
-            except sr.RequestError as e:
-                self.status = "error"
-                self.error_msg = f"Error API: {e}"
-                _safe_print(f"⚠️  {self.error_msg}. Retry dalam 2 detik...")
-                time.sleep(2)
-                continue
-            except Exception as e:
-                self.status = "error"
-                self.error_msg = str(e)
-                _safe_print(f"❌ Error: {e}")
-                time.sleep(1)
-                continue
 
         self.status = "idle"
         self._is_running = False
@@ -150,9 +149,17 @@ class VoiceTyper:
         try:
             import pyperclip
             pyperclip.copy(text + " ")
-            pyautogui.hotkey(cmd_key, 'v')
+            time.sleep(0.1)  # Tunggu agar clipboard sinkron di OS
+            if is_mac:
+                pyautogui.keyDown('command')
+                time.sleep(0.02)
+                pyautogui.press('v')
+                time.sleep(0.02)
+                pyautogui.keyUp('command')
+            else:
+                pyautogui.hotkey(cmd_key, 'v')
             _safe_print(f"✍️  Diketik: \"{text}\"")
-        except ImportError:
+        except Exception:
             self._clipboard_type(text + " ")
 
     def _clipboard_type(self, text):
@@ -170,8 +177,15 @@ class VoiceTyper:
                     ['clip'], stdin=subprocess.PIPE, shell=True
                 )
                 process.communicate(text.encode('utf-16-le'))
-            time.sleep(0.05)
-            pyautogui.hotkey(cmd_key, 'v')
+            time.sleep(0.1)  # Tunggu agar clipboard sinkron di OS
+            if is_mac:
+                pyautogui.keyDown('command')
+                time.sleep(0.02)
+                pyautogui.press('v')
+                time.sleep(0.02)
+                pyautogui.keyUp('command')
+            else:
+                pyautogui.hotkey(cmd_key, 'v')
             _safe_print(f"✍️  Diketik (via clipboard): \"{text.strip()}\"")
         except Exception as e:
             safe_text = text.encode('ascii', 'replace').decode('ascii')
@@ -179,32 +193,38 @@ class VoiceTyper:
             _safe_print(f"✍️  Diketik (fallback): \"{safe_text.strip()}\"")
 
     def _clean_and_format_text(self, text):
-        # 1. Smart Punctuation Replacement for Indonesian
-        replacements = {
-            " titik dua": ":",
-            " titik koma": ";",
-            " tanda tanya": "?",
-            " tanda seru": "!",
-            " buka kurung": " (",
-            " tutup kurung": ") ",
-            " titik": ".",
-            " koma": ",",
-            " baris baru": "\n",
-            " paragraf baru": "\n\n"
-        }
+        # 1. Smart Punctuation Replacement for Indonesian using regex word boundaries
+        replacements = [
+            (r"\s*\b(?:titik dua)\b", ":"),
+            (r"\s*\b(?:titik koma)\b", ";"),
+            (r"\s*\b(?:tanda tanya)\b", "?"),
+            (r"\s*\b(?:tanda seru)\b", "!"),
+            (r"\s*\b(?:buka kurung)\b", " ("),
+            (r"\s*\b(?:tutup kurung)\b", ") "),
+            (r"\s*\b(?:titik)\b", "."),
+            (r"\s*\b(?:koma)\b", ","),
+            (r"\s*\b(?:baris baru)\b", "\n"),
+            (r"\s*\b(?:paragraf baru)\b", "\n\n")
+        ]
         
-        # Replace punctuation words case-insensitively
-        for word, punc in replacements.items():
-            pattern = re.compile(re.escape(word), re.IGNORECASE)
+        # Replace punctuation words case-insensitively using regex
+        for pattern_str, punc in replacements:
+            pattern = re.compile(pattern_str, re.IGNORECASE)
             text = pattern.sub(punc, text)
             
         # Clean up double/multiple spaces around punctuation
         text = re.sub(r'\s+([.,;:?!])', r'\1', text)
+        text = re.sub(r'\(\s+', '(', text)
+        text = re.sub(r'\s+\)', ')', text)
         
         # 2. Auto-capitalization
-        if getattr(self, 'capitalize_next', True) and len(text) > 0:
-            text = text[0].upper() + text[1:]
-            self.capitalize_next = False
+        # Capitalize the first alphabetic character if capitalize_next is True
+        if getattr(self, 'capitalize_next', True):
+            match = re.search(r'[a-zA-Z]', text)
+            if match:
+                idx = match.start()
+                text = text[:idx] + text[idx].upper() + text[idx+1:]
+                self.capitalize_next = False
             
         # Capitalize letters following sentence endings (. ? !) inside the text
         def capitalize_sentences(match):

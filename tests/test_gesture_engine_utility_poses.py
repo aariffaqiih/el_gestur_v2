@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from core.config import (
     INTENT_POWERPOINT_SEC,
     INTENT_CROSS_SEC,
+    INTENT_UNDO_SEC,
 )
 
 
@@ -107,6 +108,24 @@ def normal_right_pose():
     return hand
 
 
+def l_pose():
+    hand = curled_fingers_pose()
+    # open thumb
+    hand[2] = lm(0.0, 0.15)
+    hand[4] = lm(0.0, 0.30)
+    # open index
+    hand[6] = lm(0.05, 0.10)
+    hand[8] = lm(0.05, 0.25)
+    return hand
+
+
+def thumbs_down_pose():
+    hand = curled_fingers_pose()
+    hand[2] = lm(0.0, 0.10)
+    hand[4] = lm(0.0, 0.25)
+    return hand
+
+
 class GestureEngineUtilityPoseTests(unittest.TestCase):
     def setUp(self):
         self.engine = GestureEngine.__new__(GestureEngine)
@@ -117,6 +136,10 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.engine._process_circle_state = GestureEngine._process_circle_state.__get__(self.engine, GestureEngine)
         self.engine._is_cross_pose = GestureEngine._is_cross_pose.__get__(self.engine, GestureEngine)
         self.engine._process_cross_state = GestureEngine._process_cross_state.__get__(self.engine, GestureEngine)
+        self.engine._is_l_pose = GestureEngine._is_l_pose.__get__(self.engine, GestureEngine)
+        self.engine._process_l_pose_state = GestureEngine._process_l_pose_state.__get__(self.engine, GestureEngine)
+        self.engine._is_thumbs_down_pose = GestureEngine._is_thumbs_down_pose.__get__(self.engine, GestureEngine)
+        self.engine._process_undo_state = GestureEngine._process_undo_state.__get__(self.engine, GestureEngine)
         self.engine._detect_swipe = GestureEngine._detect_swipe.__get__(self.engine, GestureEngine)
         self.engine._trigger_action = GestureEngine._trigger_action.__get__(self.engine, GestureEngine)
         self.engine._in_cooldown = GestureEngine._in_cooldown.__get__(self.engine, GestureEngine)
@@ -125,6 +148,10 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.engine.current_cooldown = 0
         self.engine.cross_intent_start = None
         self.engine.cross_triggered = False
+        self.engine.l_pose_intent_start = None
+        self.engine.l_pose_triggered = False
+        self.engine.undo_intent_start = None
+        self.engine.undo_triggered = False
 
     def test_two_hand_circle_opens_powerpoint_pose_only(self):
         all_hands = [("Left", circle_left_pose()), ("Right", circle_right_pose())]
@@ -172,6 +199,44 @@ class GestureEngineUtilityPoseTests(unittest.TestCase):
         self.assertEqual("delete_slide", self.engine.last_action_name)
         self.assertTrue(self.engine.cross_triggered)
 
+    def test_l_pose_only(self):
+        l_pose_hand = l_pose()
+        self.assertTrue(self.engine._is_l_pose(l_pose_hand, 1_000, 800))
+        
+        normal_hand = normal_left_pose()
+        self.assertFalse(self.engine._is_l_pose(normal_hand, 1_000, 800))
+
+    def test_held_l_pose_triggers_delete_slide(self):
+        self.engine.l_pose_intent_start = time.time() - INTENT_CROSS_SEC - 0.1
+        self.engine.l_pose_triggered = False
+        self.engine.last_action_name = ""
+        actions = []
+        self.engine.callback = actions.append
+
+        self.engine._process_l_pose_state(True)
+
+        self.assertEqual(["delete_slide"], actions)
+        self.assertEqual("delete_slide", self.engine.last_action_name)
+        self.assertTrue(self.engine.l_pose_triggered)
+    def test_thumbs_down_pose_only(self):
+        thumbs_down_hand = thumbs_down_pose()
+        self.assertTrue(self.engine._is_thumbs_down_pose(thumbs_down_hand, 1_000, 800))
+        
+        normal_hand = normal_left_pose()
+        self.assertFalse(self.engine._is_thumbs_down_pose(normal_hand, 1_000, 800))
+
+    def test_held_thumbs_down_triggers_undo(self):
+        self.engine.undo_intent_start = time.time() - INTENT_UNDO_SEC - 0.1
+        self.engine.undo_triggered = False
+        self.engine.last_action_name = ""
+        actions = []
+        self.engine.callback = actions.append
+
+        self.engine._process_undo_state(True)
+
+        self.assertEqual(["undo"], actions)
+        self.assertEqual("undo", self.engine.last_action_name)
+        self.assertTrue(self.engine.undo_triggered)
 
 
 if __name__ == "__main__":

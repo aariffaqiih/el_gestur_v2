@@ -257,8 +257,14 @@ class DocumentFinder:
     def _score(self, record: DocumentRecord, normalized_query: str) -> float:
         normalized_name = _normalize_text(record.path.name)
         normalized_stem = _normalize_text(record.path.stem)
+        normalized_path = _normalize_text(str(record.path))
         query_tokens = normalized_query.split()
         name_tokens = set(normalized_stem.split())
+
+        # All query tokens must be present in the normalized file path
+        for token in query_tokens:
+            if token not in normalized_path:
+                return 0
 
         phrase_match = normalized_query in normalized_stem
         token_scores = []
@@ -267,13 +273,12 @@ class DocumentFinder:
                 token_scores.append(24)
             elif token in normalized_name:
                 token_scores.append(14)
+            elif token in normalized_path:
+                token_scores.append(8)
             else:
                 token_scores.append(0)
 
         similarity = SequenceMatcher(None, normalized_query, normalized_stem).ratio()
-        if not phrase_match and not any(token_scores) and similarity < 0.55:
-            return 0
-
         exact_phrase_score = 160 if normalized_query == normalized_stem else 0
         phrase_score = 100 if phrase_match else 0
         similarity_score = similarity * 30

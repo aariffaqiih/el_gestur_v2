@@ -73,6 +73,40 @@ const getBaseUrl = () => document.getElementById("api-url").value;
         await apiCall("set_voice_device", "POST", { device_index: selectedValue });
       }
 
+      async function fetchCameraDevices() {
+        try {
+          const res = await fetch(`${getBaseUrl()}/camera_devices`);
+          if (!res.ok) throw new Error("Gagal memuat perangkat kamera");
+          const data = await res.json();
+          if (data.status === "success" && data.devices) {
+            const selectEl = document.getElementById("camera-device-select");
+            if (selectEl) {
+              const currentVal = selectEl.value;
+              selectEl.innerHTML = "";
+              data.devices.forEach((device) => {
+                const option = document.createElement("option");
+                option.value = device.index;
+                option.textContent = `[Idx ${device.index}] ${device.name}`;
+                selectEl.appendChild(option);
+              });
+              // Restore selected value if still in options
+              if (selectEl.querySelector(`option[value="${currentVal}"]`)) {
+                selectEl.value = currentVal;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Gagal mendapatkan daftar kamera:", err);
+        }
+      }
+
+      async function onCameraDeviceChange(event) {
+        const selectedValue = event.target.value;
+        if (selectedValue !== "default" && selectedValue !== "") {
+          await apiCall("set_camera_device", "POST", { device_index: selectedValue });
+        }
+      }
+
       let isVoiceMuted = false;
 
       function updateMuteButtonUI() {
@@ -280,9 +314,9 @@ const getBaseUrl = () => document.getElementById("api-url").value;
 
           const resultMeta = document.createElement("div");
           resultMeta.className = "document-result-meta";
-          resultMeta.textContent = `${documentResult.extension.toUpperCase()} Â· ${formatFileSize(
+          resultMeta.textContent = `${documentResult.extension.toUpperCase()} • ${formatFileSize(
             documentResult.size_bytes
-          )} Â· ${new Date(documentResult.modified_at).toLocaleString(
+          )} • ${new Date(documentResult.modified_at).toLocaleString(
             "id-ID"
           )}`;
 
@@ -464,6 +498,16 @@ const getBaseUrl = () => document.getElementById("api-url").value;
             }
           }
 
+          if (data.active_camera_index !== undefined) {
+            const selectEl = document.getElementById("camera-device-select");
+            if (selectEl) {
+              const targetVal = data.active_camera_index.toString();
+              if (selectEl.value !== targetVal && selectEl.querySelector(`option[value="${targetVal}"]`)) {
+                selectEl.value = targetVal;
+              }
+            }
+          }
+
           if (data.documents) {
             renderDocumentState(data.documents);
           }
@@ -499,3 +543,4 @@ const getBaseUrl = () => document.getElementById("api-url").value;
 
       setInterval(pollStatus, 1000);
       pollStatus();
+      fetchCameraDevices();

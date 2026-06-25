@@ -81,6 +81,16 @@ class VoiceTyperPipelineTests(unittest.TestCase):
         result3 = voice_typer.process_text("saya pergi titik dia tinggal titik")
         self.assertEqual("Saya pergi. Dia tinggal.", result3["typed"])
 
+        # Test punctuation at the start of sentence
+        voice_typer.capitalize_next = True
+        result4 = voice_typer.process_text("buka kurung halo tutup kurung")
+        self.assertEqual(" (Halo) ", result4["typed"])
+
+        # Test partial matching avoidance (word boundary safety)
+        voice_typer.capitalize_next = True
+        result5 = voice_typer.process_text("komando pasukan khusus")
+        self.assertEqual("Komando pasukan khusus", result5["typed"])
+
     def test_is_muted_blocks_processing(self):
         typed_texts = []
         voice_typer = VoiceTyper.__new__(VoiceTyper)

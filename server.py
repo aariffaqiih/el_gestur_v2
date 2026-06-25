@@ -22,8 +22,56 @@ app = Flask(__name__)
 CORS(app)
 
 global_frame = None
+active_camera_index = CAMERA_INDEX
 current_software = "ppt"
 
+
+def activate_target_app_mac(software_name):
+    if sys.platform != "darwin":
+        return
+    import subprocess
+    app_name = None
+    if software_name == "ppt":
+        app_name = "Microsoft PowerPoint"
+    elif software_name == "canva":
+        app_name = "Canva"
+    elif software_name == "figma":
+        app_name = "Figma"
+    elif software_name == "notion":
+        app_name = "Notion"
+        
+    if app_name:
+        try:
+            script = f'''
+            tell application "System Events"
+                if exists process "{app_name}" then
+                    tell application "{app_name}" to activate
+                    return "activated"
+                end if
+            end tell
+            '''
+            result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=1.0)
+            if "activated" in result.stdout:
+                return
+        except Exception:
+            pass
+            
+    if software_name in ["canva", "figma", "notion"]:
+        for browser in ["Google Chrome", "Safari", "Firefox"]:
+            try:
+                script = f'''
+                tell application "System Events"
+                    if exists process "{browser}" then
+                        tell application "{browser}" to activate
+                        return "activated"
+                    end if
+                end tell
+                '''
+                result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=1.0)
+                if "activated" in result.stdout:
+                    break
+            except Exception:
+                pass
 
 def handle_gesture(action):
     global current_software
@@ -32,6 +80,9 @@ def handle_gesture(action):
     cmd_key = "command" if is_mac else "ctrl"
     alt_key = "option" if is_mac else "alt"
     switcher_key = "command" if is_mac else "alt"
+
+    if is_mac and action not in ["alt_tab_start", "alt_tab_next", "alt_tab_end", "voice_start", "open_powerpoint"]:
+        activate_target_app_mac(current_software)
 
     if action == "alt_tab_start":
         pyautogui.keyDown(switcher_key)
@@ -62,6 +113,10 @@ def handle_gesture(action):
         else:
             success, message = False, f"Software {current_software} tidak didukung"
         print(("OK " if success else "ERROR ") + message)
+        return
+
+    if action == "undo":
+        pyautogui.hotkey(cmd_key, "z")
         return
 
     if current_software == "ppt":
@@ -109,7 +164,33 @@ def handle_gesture(action):
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
         elif action == "delete_slide":
-            pyautogui.press("delete")
+            if is_mac:
+                script = '''
+                tell application "Microsoft PowerPoint"
+                    try
+                        tell active window
+                            set currentSlide to slide of selection
+                            delete currentSlide
+                        end tell
+                    on error
+                        try
+                            tell active presentation
+                                set slideIndex to slide index of selection
+                                delete slide slideIndex
+                            end tell
+                        on error
+                            try
+                                set currentSlide to slide of view of active window
+                                delete currentSlide
+                            end try
+                        end try
+                    end try
+                end tell
+                '''
+                import subprocess
+                subprocess.run(["osascript", "-e", script])
+            else:
+                pyautogui.press("delete")
 
     elif current_software == "canva":
         if action == "next":
@@ -133,7 +214,7 @@ def handle_gesture(action):
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
         elif action == "delete_slide":
-            pyautogui.press("delete")
+            pyautogui.press("backspace" if is_mac else "delete")
 
     elif current_software == "figma":
         if action == "next":
@@ -166,7 +247,7 @@ def handle_gesture(action):
             time.sleep(0.05)
             pyautogui.press("esc")
             time.sleep(0.05)
-            pyautogui.press("delete")
+            pyautogui.press("backspace" if is_mac else "delete")
 
     elif current_software == "notion":
         if action == "next":
@@ -191,7 +272,15 @@ def handle_gesture(action):
                 success = voice_typer.start()
                 print("Voice Typer otomatis dimulai setelah new_slide." if success else "Gagal otomatis memulai Voice Typer.")
         elif action == "delete_slide":
-            pyautogui.press("delete")
+            pyautogui.press("backspace" if is_mac else "delete")
+
+    elif current_software == "global":
+        if action == "next":
+            pyautogui.press("right")
+        elif action == "prev":
+            pyautogui.press("left")
+        elif action == "quit":
+            pyautogui.press("esc")
 
 
 def handle_cursor_move(x, y):
@@ -201,6 +290,30 @@ def handle_cursor_move(x, y):
 
 def handle_software_commands(text):
     global current_software
+    
+    is_mac = sys.platform == "darwin"
+    cmd_key = "command" if is_mac else "ctrl"
+    
+    lowered = text.lower().strip()
+    
+    # Global Presentation Navigation Commands
+    if lowered in ["slide selanjutnya", "selanjutnya", "berikutnya", "halaman berikutnya"]:
+        if current_software == "notion":
+            pyautogui.press("pagedown")
+        else:
+            pyautogui.press("right")
+        return {"status": "command", "command": "slide selanjutnya"}
+        
+    if lowered in ["slide sebelumnya", "sebelumnya", "kembali", "halaman sebelumnya"]:
+        if current_software == "notion":
+            pyautogui.press("pageup")
+        else:
+            pyautogui.press("left")
+        return {"status": "command", "command": "slide sebelumnya"}
+
+    if current_software == "global":
+        return None
+        
     is_mac = sys.platform == "darwin"
     cmd_key = "command" if is_mac else "ctrl"
     
@@ -357,13 +470,23 @@ pyautogui.PAUSE = 0.005
 
 
 def camera_loop():
-    global global_frame
-    cap = cv2.VideoCapture(CAMERA_INDEX)
+    global global_frame, active_camera_index
+    current_idx = active_camera_index
+    cap = cv2.VideoCapture(current_idx)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
 
     print("Pipeline Kamera berjalan...")
     while True:
+        # Check if camera index was changed dynamically
+        if active_camera_index != current_idx:
+            print(f"Mengubah input kamera dari {current_idx} ke {active_camera_index}...")
+            cap.release()
+            current_idx = active_camera_index
+            cap = cv2.VideoCapture(current_idx)
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_WIDTH)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_HEIGHT)
+
         # Sleep when engine is STANDBY to save power and computation
         if not locker.is_active:
             time.sleep(0.5)
@@ -371,7 +494,9 @@ def camera_loop():
         start_time = time.time()
         ret, frame = cap.read()
         if not ret:
-            break
+            print(f"Gagal membaca frame dari kamera {current_idx}. Mencoba lagi...")
+            time.sleep(0.5)
+            continue
         frame = cv2.flip(frame, 1)
 
         frame_annotated, presenter_roi = locker.process_frame(frame)
@@ -403,7 +528,7 @@ def set_software():
     global current_software
     data = request.json
     selected = data.get("software")
-    if selected in ["ppt", "canva", "figma", "notion"]:
+    if selected in ["ppt", "canva", "figma", "notion", "global"]:
         current_software = selected
         print(f"TARGET SOFTWARE DIUBAH KE: {current_software.upper()}")
         return jsonify({"status": "success", "software": current_software})
@@ -520,6 +645,66 @@ def set_voice_device():
         return jsonify({"status": "error", "message": f"Gagal mengatur mikrofon: {e}"}), 500
 
 
+def get_camera_names():
+    names = []
+    try:
+        if sys.platform == "darwin":
+            import objc
+            objc.loadBundle('AVFoundation', bundle_path='/System/Library/Frameworks/AVFoundation.framework', module_globals=globals())
+            devices = AVCaptureDevice.devicesWithMediaType_('vide')
+            for d in devices:
+                names.append(d.localizedName())
+    except Exception as e:
+        print(f"Gagal mengambil nama kamera macOS: {e}")
+    return names
+
+
+@app.route("/camera_devices", methods=["GET"])
+def camera_devices():
+    global active_camera_index
+    try:
+        camera_names = get_camera_names()
+        devices = []
+        if camera_names:
+            for i, name in enumerate(camera_names):
+                if i == active_camera_index:
+                    devices.append({"index": i, "name": f"{name} (Aktif)"})
+                else:
+                    devices.append({"index": i, "name": name})
+        else:
+            for i in range(5):
+                name = f"Kamera {i}"
+                if i == active_camera_index:
+                    devices.append({"index": i, "name": f"{name} (Aktif)"})
+                    continue
+                cap = cv2.VideoCapture(i)
+                if cap.isOpened():
+                    devices.append({"index": i, "name": name})
+                    cap.release()
+        return jsonify({"status": "success", "devices": devices})
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Gagal mendapatkan daftar kamera: {e}"}), 500
+
+
+
+@app.route("/set_camera_device", methods=["POST"])
+def set_camera_device():
+    global active_camera_index
+    data = request.json or {}
+    device_index = data.get("device_index")
+    if device_index is None:
+        return jsonify({"status": "error", "message": "Index kamera tidak boleh kosong"}), 400
+    try:
+        active_camera_index = int(device_index)
+        return jsonify({
+            "status": "success",
+            "message": f"Kamera berhasil diatur ke index: {active_camera_index}",
+            "active_camera_index": active_camera_index
+        })
+    except Exception as e:
+        return jsonify({"status": "error", "message": f"Gagal mengatur kamera: {e}"}), 500
+
+
 @app.route("/type", methods=["POST"])
 def type_text():
     data = request.get_json(silent=True) or {}
@@ -536,6 +721,7 @@ def get_status():
         "current_software": current_software,
         "voice_typer": voice_typer.get_status(),
         "documents": document_commands.get_status(),
+        "active_camera_index": active_camera_index,
     })
 
 
@@ -569,13 +755,35 @@ def force_unlock():
 def generate_frames():
     global global_frame
     last_sent_frame = None
+    use_pil_fallback = False
     while True:
         if global_frame is not None:
             if global_frame is not last_sent_frame:
-                ret, buffer = cv2.imencode(".jpg", global_frame)
-                if ret:
-                    yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
-                    last_sent_frame = global_frame
+                try:
+                    if not use_pil_fallback:
+                        try:
+                            ret, buffer = cv2.imencode(".jpg", global_frame)
+                            if ret:
+                                yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + buffer.tobytes() + b"\r\n")
+                                last_sent_frame = global_frame
+                            else:
+                                use_pil_fallback = True
+                        except Exception as e:
+                            print(f"OpenCV imencode failed, falling back to PIL: {e}")
+                            use_pil_fallback = True
+
+                    if use_pil_fallback:
+                        from PIL import Image
+                        import io
+                        # cv2 frame is BGR, convert to RGB
+                        rgb_frame = cv2.cvtColor(global_frame, cv2.COLOR_BGR2RGB)
+                        pil_img = Image.fromarray(rgb_frame)
+                        buf = io.BytesIO()
+                        pil_img.save(buf, format="JPEG", quality=75)
+                        yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + buf.getvalue() + b"\r\n")
+                        last_sent_frame = global_frame
+                except Exception as e:
+                    print(f"Error encoding frame: {e}")
             time.sleep(0.033)  # limit stream to max ~30 FPS
         else:
             time.sleep(0.1)

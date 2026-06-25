@@ -4,11 +4,24 @@ from deep_sort_realtime.deepsort_tracker import DeepSort
 import time
 import numpy as np
 from .config import CAMERA_FPS, YOLO_CONFIDENCE, LOCK_LOST_SEC, CAMERA_INDEX, CAMERA_WIDTH, CAMERA_HEIGHT, YOLO_FRAME_SKIP
-
 class ObjectLocker:
     def __init__(self):
         print("⏳ Loading YOLOv8 model...")
-        self.model = YOLO('yolov8n.pt')
+        
+        # Resolve path to yolov8n.pt when running as frozen app
+        import sys, os
+        model_name = 'yolov8n.pt'
+        if getattr(sys, 'frozen', False):
+            base_path = sys._MEIPASS
+            model_path = os.path.join(base_path, model_name)
+            if not os.path.exists(model_path):
+                # Fallback to Resources folder on macOS BUNDLE
+                resources_path = os.path.join(os.path.dirname(base_path), 'Resources')
+                model_path = os.path.join(resources_path, model_name)
+        else:
+            model_path = model_name
+            
+        self.model = YOLO(model_path)
         
         # Auto-detect best device (CUDA for Windows with NVIDIA, MPS for macOS, CPU fallback)
         import torch

@@ -113,5 +113,22 @@ class TestSoftwareCommands(unittest.TestCase):
         self.mock_pyautogui.typewrite.assert_called_with("/table", interval=0.01)
         self.mock_pyautogui.press.assert_called_with("enter")
 
+    @patch('server.current_software', 'global')
+    def test_global_commands(self):
+        # Unrelated commands should return None
+        res = server.handle_software_commands("buat tabel")
+        self.assertIsNone(res)
+        res = server.handle_software_commands("pena")
+        self.assertIsNone(res)
+
+        # Slide navigation commands should work globally
+        res_next = server.handle_software_commands("slide selanjutnya")
+        self.assertEqual(res_next["command"], "slide selanjutnya")
+        self.mock_pyautogui.press.assert_called_with("right")
+
+        res_prev = server.handle_software_commands("sebelumnya")
+        self.assertEqual(res_prev["command"], "slide sebelumnya")
+        self.mock_pyautogui.press.assert_called_with("left")
+
 if __name__ == "__main__":
     unittest.main()

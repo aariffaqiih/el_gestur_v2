@@ -4,6 +4,106 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>El Presentasi - Dashboard</title>
+    <script>
+      (function() {
+        const errorQueue = [];
+        const originalLog = console.log;
+        const originalError = console.error;
+        const originalWarn = console.warn;
+
+        const safeStringify = (val) => {
+          try {
+            if (val === null) return 'null';
+            if (val === undefined) return 'undefined';
+            if (typeof val === 'object') {
+              if (val instanceof Error) {
+                return `${val.name}: ${val.message}\n${val.stack}`;
+              }
+              return JSON.stringify(val);
+            }
+            return String(val);
+          } catch (e) {
+            return `[Unserializable Object: ${val.constructor ? val.constructor.name : typeof val}]`;
+          }
+        };
+
+        window.onerror = function(message, source, lineno, colno, error) {
+          const msg = `${message} at ${source}:${lineno}:${colno}`;
+          errorQueue.push({level: 'exception', message: msg});
+          return false;
+        };
+
+        console.log = function(...args) {
+          try {
+            originalLog.apply(console, args);
+          } catch(e) {}
+          const msg = args.map(safeStringify).join(' ');
+          errorQueue.push({level: 'info', message: msg});
+        };
+        console.error = function(...args) {
+          try {
+            originalError.apply(console, args);
+          } catch(e) {}
+          const msg = args.map(safeStringify).join(' ');
+          errorQueue.push({level: 'error', message: msg});
+        };
+        console.warn = function(...args) {
+          try {
+            originalWarn.apply(console, args);
+          } catch(e) {}
+          const msg = args.map(safeStringify).join(' ');
+          errorQueue.push({level: 'warn', message: msg});
+        };
+
+        const initLogger = () => {
+          try {
+            const logToPython = (level, message) => {
+              if (window.pywebview && window.pywebview.api && window.pywebview.api.js_log) {
+                window.pywebview.api.js_log(level, message);
+              }
+            };
+            
+            console.log = function(...args) {
+              try {
+                originalLog.apply(console, args);
+              } catch(e) {}
+              logToPython('info', args.map(safeStringify).join(' '));
+            };
+            console.error = function(...args) {
+              try {
+                originalError.apply(console, args);
+              } catch(e) {}
+              logToPython('error', args.map(safeStringify).join(' '));
+            };
+            console.warn = function(...args) {
+              try {
+                originalWarn.apply(console, args);
+              } catch(e) {}
+              logToPython('warn', args.map(safeStringify).join(' '));
+            };
+            window.onerror = function(message, source, lineno, colno, error) {
+              logToPython('exception', `${message} at ${source}:${lineno}:${colno}`);
+              return false;
+            };
+
+            while (errorQueue.length > 0) {
+              const item = errorQueue.shift();
+              logToPython(item.level, "[Queued] " + item.message);
+            }
+            
+            logToPython('info', 'JS logger initialized and queue flushed.');
+          } catch (e) {
+            try { originalError('Failed to initialize JS to Python logger:', e); } catch(_) {}
+          }
+        };
+
+        if (window.pywebview && window.pywebview.api) {
+          initLogger();
+        } else {
+          window.addEventListener('pywebviewready', initLogger);
+        }
+      })();
+    </script>
     <link
       href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap"
       rel="stylesheet"
@@ -93,8 +193,7 @@
           </div>
           <div class="document-results" id="document-results"></div>
           <p class="document-help">
-            Perintah suara: â€œcari dokumen proposal kegiatanâ€, lalu â€œbuka
-            nomor satuâ€.
+            Perintah suara: &ldquo;cari dokumen proposal kegiatan&rdquo;, lalu &ldquo;buka nomor satu&rdquo;.
           </p>
         </section>
       </div>
@@ -118,11 +217,21 @@
           <i class="fa-solid fa-circle-dot"></i> Aktifkan Laser Pointer
         </button>
 
-        <div class="status-card" style="margin-bottom: 1.5rem">
+        <div class="status-card" style="margin-bottom: 1rem">
           <div class="status-label">Status Engine</div>
           <div class="status-badge badge-inactive" id="status-engine">
             OFFLINE
           </div>
+        </div>
+
+        <!-- Sumber Kamera -->
+        <div class="camera-source-selector" style="margin-bottom: 1.5rem;">
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem;">
+            <i class="fa-solid fa-camera"></i> Sumber Input Kamera:
+          </div>
+          <select id="camera-device-select" class="custom-select" onchange="onCameraDeviceChange(event)">
+            <option value="default">Memuat daftar kamera...</option>
+          </select>
         </div>
 
         <div class="software-selector">
@@ -198,6 +307,16 @@
                 style="padding: 0 1rem; border-radius: 18px; display: flex; align-items: center; justify-content: center; height: auto;"
               >
                 <i class="fa-solid fa-up-right-from-square"></i>
+              </button>
+            </div>
+            <div style="display: flex; gap: 0.5rem; width: 100%;">
+              <button
+                class="software-btn"
+                id="btn-global"
+                onclick="setSoftware('global')"
+                style="flex: 1; margin: 0;"
+              >
+                Semua Aplikasi (Global)
               </button>
             </div>
           </div>

@@ -49,6 +49,21 @@ class DocumentFinderTests(unittest.TestCase):
 
         self.assertEqual("Laporan Keuangan April.xlsx", results[0]["name"])
 
+    def test_search_requires_all_tokens_and_matches_parent_folder(self):
+        # Create files in nested directories
+        self._create_file("Praktikum/Modul 9.pdf")
+        self._create_file("Praktikum/Catatan.pdf")
+        self._create_file("Teori/Modul 9.pdf")
+
+        # Searching for "Praktikum Modul" should match "Praktikum/Modul 9.pdf"
+        # because "Praktikum" matches the folder and "Modul" matches the name.
+        # It should NOT match "Praktikum/Catatan.pdf" (missing "Modul")
+        # and NOT "Teori/Modul 9.pdf" (missing "Praktikum").
+        results = self.finder.search("Praktikum Modul", force_refresh=True)
+        self.assertEqual(1, len(results))
+        self.assertEqual("Modul 9.pdf", results[0]["name"])
+        self.assertTrue("Praktikum" in results[0]["path"])
+
     def test_open_document_only_accepts_an_indexed_result_id(self):
         document = self._create_file("Proposal Kegiatan.docx")
         result = self.finder.search("proposal", force_refresh=True)[0]

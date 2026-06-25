@@ -42,6 +42,7 @@ class GestureEngine:
         self.hands = mp_hands.Hands(
             static_image_mode=False,
             max_num_hands=2,
+            model_complexity=0,
             min_detection_confidence=MP_DETECTION_CONFIDENCE,
             min_tracking_confidence=MP_TRACKING_CONFIDENCE
         )
@@ -74,6 +75,10 @@ class GestureEngine:
         self.new_slide_triggered = False
         self.cross_intent_start = None
         self.cross_triggered = False
+        self.l_pose_intent_start = None
+        self.l_pose_triggered = False
+        self.undo_intent_start = None
+        self.undo_triggered = False
         self.filter_x, self.filter_y = None, None
         self.last_cursor_x, self.last_cursor_y = None, None
         self.screen_w, self.screen_h = pyautogui.size()
@@ -149,6 +154,25 @@ class GestureEngine:
         ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) * 1.05
         pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h) * 1.05
         return index_open and middle_open and ring_curled and pinky_curled
+
+    def _is_l_pose(self, landmarks, w, h):
+        d, wrist = self._calc_dist, landmarks[0]
+        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 0.95
+        index_open = d(wrist, landmarks[8], w, h) > d(wrist, landmarks[6], w, h) * 0.95
+        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) * 1.05
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) * 1.05
+        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h) * 1.05
+        return thumb_open and index_open and middle_curled and ring_curled and pinky_curled
+
+    def _is_thumbs_down_pose(self, landmarks, w, h):
+        d, wrist = self._calc_dist, landmarks[0]
+        thumb_open = d(wrist, landmarks[4], w, h) > d(wrist, landmarks[2], w, h) * 0.98
+        thumb_down = landmarks[4].y > landmarks[2].y
+        index_curled = d(wrist, landmarks[8], w, h) < d(wrist, landmarks[6], w, h) * 1.05
+        middle_curled = d(wrist, landmarks[12], w, h) < d(wrist, landmarks[10], w, h) * 1.05
+        ring_curled = d(wrist, landmarks[16], w, h) < d(wrist, landmarks[14], w, h) * 1.05
+        pinky_curled = d(wrist, landmarks[20], w, h) < d(wrist, landmarks[18], w, h) * 1.05
+        return thumb_open and thumb_down and index_curled and middle_curled and ring_curled and pinky_curled
 
     @staticmethod
     def _get_two_hands(all_hands):
@@ -264,6 +288,34 @@ class GestureEngine:
         else:
             self.cross_intent_start = None
             self.cross_triggered = False
+
+    def _process_l_pose_state(self, l_pose_detected):
+        if l_pose_detected:
+            if self.l_pose_intent_start is None:
+                   self.l_pose_intent_start = time.time()
+                   self.l_pose_triggered = False
+            elif (not self.l_pose_triggered and
+                  time.time() - self.l_pose_intent_start >= INTENT_CROSS_SEC):
+                if not self._in_cooldown():
+                       self.l_pose_triggered = True
+                       self._trigger_action("delete_slide", COOLDOWN_DELETE_MS)
+        else:
+            self.l_pose_intent_start = None
+            self.l_pose_triggered = False
+
+    def _process_undo_state(self, thumbs_down_detected):
+        if thumbs_down_detected:
+            if self.undo_intent_start is None:
+                self.undo_intent_start = time.time()
+                self.undo_triggered = False
+            elif (not self.undo_triggered and
+                  time.time() - self.undo_intent_start >= INTENT_UNDO_SEC):
+                if not self._in_cooldown():
+                    self.undo_triggered = True
+                    self._trigger_action("undo", COOLDOWN_UNDO_MS)
+        else:
+            self.undo_intent_start = None
+            self.undo_triggered = False
 
     def _detect_start_presentation(self, hand_label, landmarks, frame_w, frame_h):
         state = self.start_state[hand_label]
@@ -401,10 +453,10 @@ class GestureEngine:
         delta_y_total = abs(buf[-1][1] - buf[-4][1])
 
         # Enforce horizontal swipe: ignore if vertical movement is significant
-        if delta_y_total > abs(delta_x_total) * 0.7:
+        if delta_y_total > abs(delta_x_total) * 1.2:
             return
 
-        if abs(peak_velocity) < (frame_w * 0.3) or abs(delta_x_total) < (frame_w * 0.12): return
+        if abs(peak_velocity) < (frame_w * 0.2) or abs(delta_x_total) < (frame_w * 0.08): return
         arah = "kanan" if delta_x_total > 0 else "kiri"
         if arah != ("kanan" if peak_velocity > 0 else "kiri"): return
 
@@ -415,56 +467,89 @@ class GestureEngine:
     def process_frame(self, frame, roi=None):
         h, w = frame.shape[:2]
         results = self.hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        all_hands = []
-        valid_hands = []
-        ily_detected = False
-        voice_start_detected = False
-        ok_detected = False
-        two_hand_utility_pose = False
+        
+        # Collect all raw hands detected in the frame
+        raw_hands = []
         if results.multi_hand_landmarks:
             for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
                 hand_label = "Left" if hand_info.classification[0].label == "Right" else "Right"
-                all_hands.append((hand_label, hand_landmarks.landmark))
-            for hand_landmarks, hand_info in zip(results.multi_hand_landmarks, results.multi_handedness):
-                hand_label = "Left" if hand_info.classification[0].label == "Right" else "Right"
-                lm = hand_landmarks.landmark
-                if roi:
-                    rx1, ry1, rx2, ry2 = roi
-                    wrist = hand_landmarks.landmark[0]
-                    wx, wy = int(wrist.x * w), int(wrist.y * h)
-                    pad = 30
-                    if not (rx1 - pad <= wx <= rx2 + pad and ry1 - pad <= wy <= ry2 + pad):
-                        continue
-                mp_draw.draw_landmarks(
-                    frame, hand_landmarks, mp_hands.HAND_CONNECTIONS,
-                    mp_styles.get_default_hand_landmarks_style(),
-                    mp_styles.get_default_hand_connections_style()
-                )
-                valid_hands.append((hand_label, lm))
-                self._detect_laser_toggle(hand_label, lm, w, h)
-                if self._is_ily_pose(lm, w, h):
-                    ily_detected = True
-                if self._is_ok_pose(lm, w, h):
-                    ok_detected = True
-                if voice_start_detected:
-                    self.position_buffer[hand_label].clear()
-                    self.start_state[hand_label]["stage"] = 0
-                elif self.laser_active:
-                    if self._is_index_pointing(lm, w, h): self._track_index_finger(lm, w, h)
-                    else: self.filter_x = self.filter_y = self.last_cursor_x = self.last_cursor_y = None
+                raw_hands.append((hand_label, hand_landmarks.landmark, hand_landmarks))
+
+        # Filter hands to keep only the presenter's hands if a target ROI is locked
+        all_hands = []
+        valid_hands = []
+        
+        if roi and raw_hands:
+            rx1, ry1, rx2, ry2 = roi
+            px_center = (rx1 + rx2) / 2
+            py_center = (ry1 + ry2) / 2
+            box_h = ry2 - ry1
+            max_reach = max(box_h * 1.5, 300)  # Max reach of arms relative to height
+            
+            scored_hands = []
+            for hand_label, lm, hl in raw_hands:
+                wrist = lm[0]
+                wx, wy = wrist.x * w, wrist.y * h
+                dist = math.hypot(wx - px_center, wy - py_center)
+                if dist <= max_reach:
+                    scored_hands.append((dist, hand_label, lm, hl))
+            
+            # Sort by distance (closest to body center first) and keep only the top 2 (presenter's left & right hands)
+            scored_hands.sort(key=lambda x: x[0])
+            for _, hand_label, lm, hl in scored_hands[:2]:
+                all_hands.append((hand_label, lm))
+                valid_hands.append((hand_label, lm, hl))
+        else:
+            # If no target locked (setup mode), track all hands up to 2
+            all_hands = [(hand_label, lm) for hand_label, lm, _ in raw_hands[:2]]
+            valid_hands = raw_hands[:2]
+
+        ily_detected = False
+        voice_start_detected = False
+        ok_detected = False
+        l_pose_detected = False
+        thumbs_down_detected = False
+        
+        # Process gestures and draw visual feedback ONLY for the presenter's validated hands
+        for hand_label, lm, hl in valid_hands:
+            mp_draw.draw_landmarks(
+                frame, hl, mp_hands.HAND_CONNECTIONS,
+                mp_styles.get_default_hand_landmarks_style(),
+                mp_styles.get_default_hand_connections_style()
+            )
+            
+            self._detect_laser_toggle(hand_label, lm, w, h)
+            if self._is_ily_pose(lm, w, h):
+                ily_detected = True
+            if self._is_ok_pose(lm, w, h):
+                ok_detected = True
+            if self._is_l_pose(lm, w, h):
+                l_pose_detected = True
+            if self._is_thumbs_down_pose(lm, w, h):
+                thumbs_down_detected = True
+                
+            if voice_start_detected:
+                self.position_buffer[hand_label].clear()
+                self.start_state[hand_label]["stage"] = 0
+            elif self.laser_active:
+                if self._is_index_pointing(lm, w, h):
+                    self._track_index_finger(lm, w, h)
                 else:
-                    if not self._in_cooldown():
-                        if len(all_hands) < 2:
-                            self._detect_swipe(hand_label, lm, w, h)
-                            self._detect_start_presentation(hand_label, lm, w, h)
-                            self._detect_stop_presentation(hand_label, lm)
-                        else:
-                            self.position_buffer[hand_label].clear()
+                    self.filter_x = self.filter_y = self.last_cursor_x = self.last_cursor_y = None
+            else:
+                if not self._in_cooldown():
+                    if len(all_hands) < 2:
+                        self._detect_swipe(hand_label, lm, w, h)
+                        self._detect_start_presentation(hand_label, lm, w, h)
+                        self._detect_stop_presentation(hand_label, lm)
                     else:
                         self.position_buffer[hand_label].clear()
-                        self.start_state[hand_label]["stage"] = 0
-                        self.stop_state[hand_label]["stage"] = 0
-        active_hand_labels = {hand_label for hand_label, _ in valid_hands}
+                else:
+                    self.position_buffer[hand_label].clear()
+                    self.start_state[hand_label]["stage"] = 0
+                    self.stop_state[hand_label]["stage"] = 0
+                    
+        active_hand_labels = {hand_label for hand_label, _, _ in valid_hands}
         self._reset_inactive_hand_states(active_hand_labels)
         self._process_voice_start_state(voice_start_detected)
         self._process_quit_state(all_hands, w, h)
@@ -472,6 +557,8 @@ class GestureEngine:
         self._process_circle_state(all_hands, w, h)
         self._process_cross_state(all_hands, w, h)
         self._process_new_slide_state(ok_detected)
+        self._process_l_pose_state(l_pose_detected)
+        self._process_undo_state(thumbs_down_detected)
         return frame
 
     def get_status(self):
